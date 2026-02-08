@@ -13,12 +13,13 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
   api:
-    build: .
+    build: ./apps/server
     container_name: happy_report_api
     depends_on:
       - db
     environment:
       PORT: 3000
+      GAMES_DIR: /games
       PGHOST: db
       PGPORT: 5432
       PGUSER: app
@@ -28,6 +29,15 @@ services:
       ADMIN_REG_SECRET: admin_secret
     ports:
       - "3000:3000"
+    volumes:
+      - ./games:/games
+  client:
+    build: ./apps/client
+    container_name: finplay_client
+    depends_on:
+      - api
+    ports:
+      - "3001:3001"
 
 volumes:
   pgdata:

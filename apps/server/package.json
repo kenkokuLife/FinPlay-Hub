@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node src/index.js",
+    "scan:games": "node scripts/scan-games.js",
     "sync:github": "node scripts/sync-github.js"
   },
   "dependencies": {
