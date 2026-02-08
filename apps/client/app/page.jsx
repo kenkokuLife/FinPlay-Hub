@@ -1,6 +1,7 @@
  "use client";
 
 import { useEffect, useState } from "react";
+import { Coffee } from "lucide-react";
 
 const games = [
   {
@@ -73,7 +74,7 @@ export default function Home() {
             <a className="btn hero-btn-primary" href={games[0].path}>
               进入奶茶店
             </a>
-            <a className="btn hero-btn-ghost" href="/api/games">
+            <a className="btn hero-btn-ghost" href="#game-library">
               查看游戏列表
             </a>
           </div>
@@ -105,7 +106,7 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="section">
+      <section className="section" id="game-library">
         <h2>游戏库</h2>
         <div className="game-grid">
           {games.map((game) => (
@@ -113,8 +114,9 @@ export default function Home() {
               {game.status === "pending" && (
                 <span className="card-badge">New</span>
               )}
-              <div className="game-card-thumb">
-                <img src={game.thumbnail} alt={game.title} />
+              <div className="game-card-thumb css-thumb">
+                <Coffee size={56} strokeWidth={1.2} className="css-thumb-icon" />
+                <span className="css-thumb-label">MODULE: OPEX/CAPEX</span>
               </div>
               <div className="game-card-body">
                 <h3 className="game-card-title">{game.title}</h3>

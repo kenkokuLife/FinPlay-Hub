@@ -4,15 +4,7 @@ const nextConfig = {
   experimental: {
     outputFileTracingRoot: process.cwd()
   },
-  trailingSlash: true,
-  async rewrites() {
-    return [
-      {
-        source: "/games/:slug/",
-        destination: "/games/:slug/index.html"
-      }
-    ];
-  }
+  trailingSlash: true
 };
 
 export default nextConfig;
