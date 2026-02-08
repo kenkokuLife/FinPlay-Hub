@@ -51,3 +51,14 @@ model Game {
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
 }
+
+model GameSession {
+  id              String   @id @default(cuid())
+  gameSlug        String
+  userId          String
+  playTimeMinutes Int      @default(0)
+  launchCount     Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  @@unique([gameSlug, userId])
+}

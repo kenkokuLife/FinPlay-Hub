@@ -194,6 +194,19 @@ export default function MilkTeaProPage() {
     });
   }, [scrollKey, expanded]);
 
+  // Track game launch
+  useEffect(() => {
+    fetch("/api/games/milk-tea-pro/launch/", { method: "POST" }).catch(() => {});
+  }, []);
+
+  // Track playtime every 60 seconds
+  useEffect(() => {
+    const id = setInterval(() => {
+      fetch("/api/games/milk-tea-pro/playtime/", { method: "POST" }).catch(() => {});
+    }, 60000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <div className="game-layout">
       <div className="game-main">

@@ -197,6 +197,7 @@ export default function AdminPage() {
                   <th>状态</th>
                   <th>难度</th>
                   <th>分类</th>
+                  <th>启动次数</th>
                   <th>操作</th>
                 </tr>
               </thead>
@@ -241,6 +242,7 @@ export default function AdminPage() {
                         ))}
                       </select>
                     </td>
+                    <td className="admin-cell-launches">{game.totalLaunches || 0}</td>
                     <td>
                       <button
                         className="admin-btn-delete"

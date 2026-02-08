@@ -1,21 +1,27 @@
  "use client";
 
 import { useEffect, useState } from "react";
-import { Coffee } from "lucide-react";
+import { Coffee, Clock } from "lucide-react";
 
-const games = [
-  {
-    title: "Milk Tea Pro",
-    path: "/games/milk-tea-pro/",
-    thumbnail: "/games/milk-tea-pro/thumbnail.png",
-    category: "财报基础 / M&A入门",
-    difficulty: 2,
-    duration: "15分钟",
-    status: "pending"
-  }
-];
+const DIFFICULTY_STARS = { EASY: 1, MEDIUM: 2, HARD: 3, EXPERT: 4 };
+const CATEGORY_LABELS = {
+  FINANCE: "财务",
+  STRATEGY: "策略",
+  OPERATIONS: "运营",
+  INVESTING: "投资",
+  OTHER: "其他"
+};
+
+function formatPlayTime(minutes) {
+  if (!minutes || minutes === 0) return null;
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
 
 export default function Home() {
+  const [games, setGames] = useState([]);
   const [newGames, setNewGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState({});
@@ -25,20 +31,26 @@ export default function Home() {
     let active = true;
     async function load() {
       try {
-        const res = await fetch("/api/games/discover");
-        if (!res.ok) return;
-        const data = await res.json();
+        const [gamesRes, discoverRes] = await Promise.all([
+          fetch("/api/games"),
+          fetch("/api/games/discover")
+        ]);
         if (active) {
-          setNewGames(data.newGames || []);
+          if (gamesRes.ok) {
+            const gData = await gamesRes.json();
+            setGames((gData.games || []).filter((g) => g.status === "ACTIVE"));
+          }
+          if (discoverRes.ok) {
+            const dData = await discoverRes.json();
+            setNewGames(dData.newGames || []);
+          }
         }
       } finally {
         if (active) setLoading(false);
       }
     }
     load();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
   const handleRegister = async (slug) => {
@@ -61,6 +73,8 @@ export default function Home() {
     }
   };
 
+  const firstGame = games[0];
+
   return (
     <div className="page">
       <header className="hero">
@@ -71,7 +85,7 @@ export default function Home() {
             专为 M&A 专业人士打造，通过模拟实战掌握财报与估值核心。
           </p>
           <div className="actions">
-            <a className="btn hero-btn-primary" href={games[0].path}>
+            <a className="btn hero-btn-primary" href={firstGame ? `/games/${firstGame.slug}/` : "#game-library"}>
               进入奶茶店
             </a>
             <a className="btn hero-btn-ghost" href="#game-library">
@@ -98,7 +112,7 @@ export default function Home() {
                 <p className="glass-game-title">Milk Tea Pro</p>
                 <p className="glass-game-meta">经营模拟 · EBITDA 训练</p>
               </div>
-              <a className="btn btn-orange" href={games[0].path}>
+              <a className="btn btn-orange" href={firstGame ? `/games/${firstGame.slug}/` : "/games/milk-tea-pro/"}>
                 继续挑战
               </a>
             </div>
@@ -108,36 +122,48 @@ export default function Home() {
 
       <section className="section" id="game-library">
         <h2>游戏库</h2>
-        <div className="game-grid">
-          {games.map((game) => (
-            <div className="game-card" key={game.path}>
-              {game.status === "pending" && (
-                <span className="card-badge">New</span>
-              )}
-              <div className="game-card-thumb css-thumb">
-                <Coffee size={56} strokeWidth={1.2} className="css-thumb-icon" />
-                <span className="css-thumb-label">MODULE: OPEX/CAPEX</span>
-              </div>
-              <div className="game-card-body">
-                <h3 className="game-card-title">{game.title}</h3>
-                <p className="game-card-category">分类：{game.category}</p>
-                <div className="game-card-stats">
-                  <span className="stat">
-                    <svg viewBox="0 0 16 16" fill="none"><path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7L8 1z" fill="#f59e0b"/></svg>
-                    {"★".repeat(game.difficulty)}{"☆".repeat(5 - game.difficulty)}
-                  </span>
-                  <span className="stat">
-                    <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="#94a3b8" strokeWidth="1.2"/><path d="M8 4.5V8l2.5 1.5" stroke="#94a3b8" strokeWidth="1.2" strokeLinecap="round"/></svg>
-                    {game.duration}
-                  </span>
+        {games.length === 0 && !loading ? (
+          <div className="empty-state">
+            <p className="empty-title">暂无已上线的游戏</p>
+            <p className="empty-text">管理员需要先在后台将游戏状态设为「已上线」</p>
+          </div>
+        ) : (
+          <div className="game-grid">
+            {games.map((game) => {
+              const stars = DIFFICULTY_STARS[game.difficulty] || 2;
+              const playTime = formatPlayTime(game.totalPlayTime);
+              return (
+                <div className="game-card" key={game.id}>
+                  <div className="game-card-thumb css-thumb">
+                    <Coffee size={56} strokeWidth={1.2} className="css-thumb-icon" />
+                    <span className="css-thumb-label">MODULE: OPEX/CAPEX</span>
+                    {playTime && (
+                      <span className="css-thumb-time">
+                        <Clock size={12} strokeWidth={2} />
+                        {playTime}
+                      </span>
+                    )}
+                  </div>
+                  <div className="game-card-body">
+                    <h3 className="game-card-title">{game.title}</h3>
+                    <p className="game-card-category">
+                      分类：{CATEGORY_LABELS[game.category] || game.category}
+                    </p>
+                    <div className="game-card-stats">
+                      <span className="stat">
+                        <svg viewBox="0 0 16 16" fill="none"><path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7L8 1z" fill="#f59e0b"/></svg>
+                        {"★".repeat(stars)}{"☆".repeat(5 - stars)}
+                      </span>
+                    </div>
+                    <a className="btn btn-train" href={`/games/${game.slug}/`}>
+                      开始训练
+                    </a>
+                  </div>
                 </div>
-                <a className="btn btn-train" href={game.path}>
-                  开始训练
-                </a>
-              </div>
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="section">

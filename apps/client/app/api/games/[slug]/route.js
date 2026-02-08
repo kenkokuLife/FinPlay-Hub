@@ -6,7 +6,7 @@ const VALID_DIFFICULTY = ["EASY", "MEDIUM", "HARD", "EXPERT"];
 const VALID_CATEGORY = ["FINANCE", "STRATEGY", "OPERATIONS", "INVESTING", "OTHER"];
 
 export async function PUT(request, { params }) {
-  const { id } = params;
+  const { slug } = params;
   const body = await request.json().catch(() => null);
   if (!body) {
     return NextResponse.json({ error: "invalid body" }, { status: 400 });
@@ -23,7 +23,13 @@ export async function PUT(request, { params }) {
   }
 
   try {
-    const game = await prisma.game.update({ where: { id }, data });
+    // Try by id first, then by slug
+    let game;
+    try {
+      game = await prisma.game.update({ where: { id: slug }, data });
+    } catch {
+      game = await prisma.game.update({ where: { slug }, data });
+    }
     return NextResponse.json({ game });
   } catch (err) {
     if (err?.code === "P2025") {
@@ -34,9 +40,14 @@ export async function PUT(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
-  const { id } = params;
+  const { slug } = params;
   try {
-    await prisma.game.delete({ where: { id } });
+    let result;
+    try {
+      result = await prisma.game.delete({ where: { id: slug } });
+    } catch {
+      result = await prisma.game.delete({ where: { slug } });
+    }
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err?.code === "P2025") {
