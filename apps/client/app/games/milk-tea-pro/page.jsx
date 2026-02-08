@@ -1,11 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  BookOpenCheck,
+  Megaphone,
+  UserPlus,
+  Cpu,
+  BarChart3,
+  Trophy,
+  TrendingDown
+} from "lucide-react";
+
+const ICON_PROPS = { size: 18, strokeWidth: 1.5 };
 
 const TERMS = {
   start: {
     title: "欢迎进入训练",
-    icon: "📘",
+    icon: <BookOpenCheck {...ICON_PROPS} style={{ color: "#a5b4fc" }} />,
     terms: [
       {
         word: "EBITDA",
@@ -23,7 +34,7 @@ const TERMS = {
   },
   marketing: {
     title: "你做了营销",
-    icon: "📢",
+    icon: <Megaphone {...ICON_PROPS} style={{ color: "#9ca3af" }} />,
     terms: [
       {
         word: "SG&A 费用",
@@ -41,7 +52,7 @@ const TERMS = {
   },
   hire: {
     title: "你招了新员工",
-    icon: "👤",
+    icon: <UserPlus {...ICON_PROPS} style={{ color: "#9ca3af" }} />,
     terms: [
       {
         word: "固定成本 vs 变动成本",
@@ -59,7 +70,7 @@ const TERMS = {
   },
   machine: {
     title: "你购买了机器",
-    icon: "🏭",
+    icon: <Cpu {...ICON_PROPS} style={{ color: "#f59e0b" }} />,
     terms: [
       {
         word: "CapEx",
@@ -81,7 +92,7 @@ const TERMS = {
   },
   settle: {
     title: "日结算完成",
-    icon: "📊",
+    icon: <BarChart3 {...ICON_PROPS} style={{ color: "#60a5fa" }} />,
     terms: [
       {
         word: "收入确认",
@@ -99,7 +110,7 @@ const TERMS = {
   },
   goal_pass: {
     title: "目标达成！",
-    icon: "🏆",
+    icon: <Trophy {...ICON_PROPS} style={{ color: "#fbbf24" }} />,
     terms: [
       {
         word: "价值创造",
@@ -113,7 +124,7 @@ const TERMS = {
   },
   goal_fail: {
     title: "目标未达成",
-    icon: "📉",
+    icon: <TrendingDown {...ICON_PROPS} style={{ color: "#f87171" }} />,
     terms: [
       {
         word: "盈亏平衡分析",
@@ -127,11 +138,24 @@ const TERMS = {
   }
 };
 
+// Map game actions to the specific term to highlight
+const HIGHLIGHT_MAP = {
+  marketing: "CAC",
+  hire: "固定成本 vs 变动成本",
+  machine: "CapEx",
+  settle: "收入确认",
+  goal_pass: "价值创造",
+  goal_fail: "盈亏平衡分析"
+};
+
 export default function MilkTeaProPage() {
   const [entries, setEntries] = useState([TERMS.start]);
   const [expanded, setExpanded] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeTerm, setActiveTerm] = useState(null);
+  const [scrollKey, setScrollKey] = useState(0);
   const listRef = useRef(null);
+  const groupRefs = useRef({});
 
   useEffect(() => {
     function onMessage(e) {
@@ -140,21 +164,35 @@ export default function MilkTeaProPage() {
       const entry = TERMS[d.action];
       if (!entry) return;
       setEntries((prev) => {
-        if (prev[0] === entry) return prev;
+        const existIdx = prev.indexOf(entry);
+        if (existIdx >= 0) {
+          setExpanded(existIdx);
+          setSidebarOpen(true);
+          setActiveTerm(HIGHLIGHT_MAP[d.action] || null);
+          setScrollKey((k) => k + 1);
+          return prev;
+        }
+        setExpanded(0);
+        setSidebarOpen(true);
+        setActiveTerm(HIGHLIGHT_MAP[d.action] || null);
+        setScrollKey((k) => k + 1);
         return [entry, ...prev];
       });
-      setExpanded(0);
-      setSidebarOpen(true);
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
+  // Scroll to the expanded group whenever it changes
   useEffect(() => {
-    if (listRef.current) {
-      listRef.current.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [entries]);
+    if (scrollKey === 0) return;
+    requestAnimationFrame(() => {
+      const node = groupRefs.current[expanded];
+      if (node) {
+        node.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    });
+  }, [scrollKey, expanded]);
 
   return (
     <div className="game-layout">
@@ -178,18 +216,21 @@ export default function MilkTeaProPage() {
         {sidebarOpen && (
           <>
             <div className="sidebar-header">
-              <span className="sidebar-icon">📖</span>
+              <span className="sidebar-icon"><BookOpenCheck size={20} strokeWidth={1.5} style={{ color: "#a5b4fc" }} /></span>
               <h3>实时学习手册</h3>
             </div>
             <p className="sidebar-hint">
-              操作游戏时，这里会自动弹出对应的专业术语解释
+              {activeTerm
+                ? <>当前聚焦：<strong className="sidebar-hint-term">{activeTerm}</strong></>
+                : "操作游戏时，这里会自动弹出对应的专业术语解释"}
             </p>
 
             <div className="sidebar-list" ref={listRef}>
               {entries.map((entry, idx) => (
                 <div
                   key={`${entry.title}-${idx}`}
-                  className={`term-group ${idx === 0 ? "term-latest" : ""}`}
+                  ref={(el) => { groupRefs.current[idx] = el; }}
+                  className={`term-group ${expanded === idx ? "term-latest" : ""}`}
                 >
                   <button
                     className="term-group-header"
@@ -205,7 +246,10 @@ export default function MilkTeaProPage() {
                   {expanded === idx && (
                     <div className="term-cards">
                       {entry.terms.map((t) => (
-                        <div className="term-card" key={t.word}>
+                        <div
+                          className={`term-card ${activeTerm === t.word ? "term-active" : ""}`}
+                          key={t.word}
+                        >
                           <div className="term-word">{t.word}</div>
                           <div className="term-desc">{t.desc}</div>
                         </div>
