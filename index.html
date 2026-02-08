@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>奶茶店经营模拟器（EBITDA 重点版）</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --ink: #1f2937;
+      --muted: #6b7280;
+      --brand: #0ea5e9;
+      --ok: #16a34a;
+      --warn: #d97706;
+      --bad: #dc2626;
+      --line: #e5e7eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: linear-gradient(150deg, #eef6ff 0%, var(--bg) 45%, #fff8ef 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .app {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 16px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.04);
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+    }
+    .sub {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+    .status {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .pill {
+      background: #f9fafb;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .pill .k { color: var(--muted); font-size: 12px; }
+    .pill .v { margin-top: 4px; font-size: 18px; font-weight: 700; }
+
+    .actions {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .06s ease, opacity .2s ease;
+    }
+    button:hover { opacity: .95; }
+    button:active { transform: translateY(1px); }
+    .btn-main { background: var(--brand); color: #fff; }
+    .btn-sub { background: #111827; color: #fff; }
+    .btn-warn { background: #f59e0b; color: #111827; }
+    .btn-ghost {
+      background: #f9fafb;
+      color: #111827;
+      border: 1px solid var(--line);
+    }
+    .log {
+      margin-top: 12px;
+      background: #f9fafb;
+      border: 1px dashed #d1d5db;
+      border-radius: 10px;
+      padding: 10px;
+      height: 160px;
+      overflow: auto;
+      font-size: 13px;
+      color: #374151;
+      line-height: 1.5;
+    }
+    .report-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .badge {
+      background: #ecfeff;
+      color: #155e75;
+      border: 1px solid #a5f3fc;
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 9px 4px;
+    }
+    th {
+      text-align: left;
+      font-weight: 700;
+      color: var(--muted);
+      background: #f8fafc;
+    }
+    td:nth-child(2),
+    td:nth-child(3),
+    td:nth-child(4),
+    th:nth-child(2),
+    th:nth-child(3),
+    th:nth-child(4) {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .muted { color: var(--muted); }
+    .kpi-box {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fbfdff;
+    }
+    .kpi-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .kpi {
+      border-radius: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+    .kpi strong { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+    .kpi .num { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .ok { color: var(--ok); }
+    .bad { color: var(--bad); }
+    .diff {
+      display: inline-block;
+      min-width: 18px;
+      text-align: right;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+    .diff.up { color: var(--ok); }
+    .diff.down { color: var(--bad); }
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card" style="max-width:1100px;margin:0 auto 12px;">
+    <div style="font-size:14px;color:#374151;">
+      <b>游戏目标：</b>在 <b>第 20 天</b> 实现 <b>单日 EBITDA &gt; ¥1,000</b>
+      <span id="goalStatus" style="margin-left:10px;color:#6b7280;">进行中</span>
+    </div>
+  </div>
+  <div class="app">
+    <section class="card">
+      <h1>奶茶店经营模拟器</h1>
+      <p class="sub">
+        左侧做经营动作，点击“进入下一天”自动结算销量。<b>重点：</b>买机器会增加折旧，影响 EBIT，
+        但不会直接改变 EBITDA（核心经营能力）。
+      </p>
+
+      <div class="status">
+        <div class="pill">
+          <div class="k">现金</div>
+          <div class="v" id="cash">¥0</div>
+        </div>
+        <div class="pill">
+          <div class="k">售价/杯</div>
+          <div class="v" id="pricePerCup">¥0</div>
+        </div>
+        <div class="pill">
+          <div class="k">日需求（杯）</div>
+          <div class="v" id="demand">40</div>
+        </div>
+        <div class="pill">
+          <div class="k">日产能（杯）</div>
+          <div class="v" id="capacity">60</div>
+        </div>
+      </div>
+      <div class="sub" style="margin-top:-6px;">
+        产能上限由机器决定：每台机器每日最多处理 <b>120 杯</b>，当人手充足时会受机器产能封顶。
+      </div>
+      <div class="status" style="margin-top:-4px;">
+        <div class="pill">
+          <div class="k">今日销量（杯）</div>
+          <div class="v" id="cups">0</div>
+        </div>
+        <div class="pill">
+          <div class="k">店员数量</div>
+          <div class="v" id="staff">0</div>
+        </div>
+        <div class="pill">
+          <div class="k">机器数量</div>
+          <div class="v" id="machines">1</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn-sub" id="marketingBtn">做营销（+40 杯需求，花费 ¥200）</button>
+        <button class="btn-ghost" id="staffBtn">加一名店员（+30 杯产能，每日工资 +¥60）</button>
+        <button class="btn-warn" id="machineBtn">购买高端封口机（¥5000，折旧 20 天）</button>
+        <button class="btn-main" id="nextDayBtn">进入下一天（自动售卖并结算）</button>
+        <button class="btn-ghost" id="resetBtn">重置</button>
+      </div>
+
+      <div class="log" id="log"></div>
+    </section>
+
+    <section class="card">
+      <div class="report-title">
+        <h2 style="margin:0;font-size:20px;">今日利润表</h2>
+        <span class="badge" id="dayBadge">Day 1</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40%;">科目</th>
+            <th style="width:25%;">昨日实际</th>
+            <th style="width:25%;">今日预计</th>
+            <th style="width:10%;">差异</th>
+          </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>营业收入</td>
+          <td id="revY">-</td>
+          <td id="revT">¥0</td>
+          <td><span class="diff" id="revD">-</span></td>
+        </tr>
+        <tr>
+          <td class="muted">- 原料成本（现金）</td>
+          <td id="cogsY">-</td>
+          <td id="cogsT">¥0</td>
+          <td><span class="diff" id="cogsD">-</span></td>
+        </tr>
+        <tr>
+          <td class="muted">- 工资（现金）</td>
+          <td id="wageY">-</td>
+          <td id="wageT">¥0</td>
+          <td><span class="diff" id="wageD">-</span></td>
+        </tr>
+        <tr>
+          <td class="muted">- 房租（现金）</td>
+          <td id="rentY">-</td>
+          <td id="rentT">¥0</td>
+          <td><span class="diff" id="rentD">-</span></td>
+        </tr>
+        <tr>
+          <td class="muted">- 营销费（现金）</td>
+          <td id="mktY">-</td>
+          <td id="mktT">¥0</td>
+          <td><span class="diff" id="mktD">-</span></td>
+        </tr>
+        <tr>
+          <td><b>EBITDA</b>（昨日实际 / 今日预计）</td>
+          <td id="ebitdaY"><b>-</b></td>
+          <td id="ebitdaT"><b>¥0</b></td>
+          <td><span class="diff" id="ebitdaD">-</span></td>
+        </tr>
+        <tr>
+          <td class="muted">- 折旧（非现金）</td>
+          <td id="depY">-</td>
+          <td id="depT">¥0</td>
+          <td><span class="diff" id="depD">-</span></td>
+        </tr>
+        <tr>
+          <td><b>EBIT</b>（营业利润）</td>
+          <td id="ebitY"><b>-</b></td>
+          <td id="ebitT"><b>¥0</b></td>
+          <td><span class="diff" id="ebitD">-</span></td>
+        </tr>
+        </tbody>
+      </table>
+
+      <div class="kpi-box">
+        <div class="muted" style="font-size:13px;">
+          说明：买机器时，现金会立刻减少（CapEx），后续每天计提折旧。<br />
+          折旧不属于现金经营成本，所以不计入 EBITDA。
+        </div>
+        <div class="kpi-row">
+          <div class="kpi">
+            <strong>EBITDA</strong>
+            <div class="num ok" id="kpiEbitda">¥0</div>
+          </div>
+          <div class="kpi">
+            <strong>EBIT（含折旧）</strong>
+            <div class="num" id="kpiEbit">¥0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-box" style="margin-top:12px;border-color:#bae6fd;background:#f0f9ff;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <strong style="font-size:16px;color:#0c4a6e;">市场估值报告</strong>
+          <span class="badge">参考估值 = 上一日 EBITDA × 10</span>
+        </div>
+        <div class="kpi-row">
+          <div class="kpi">
+            <strong>参考估值（基于上一日 EBITDA 计算）</strong>
+            <div class="num ok" id="enterpriseValue">¥0</div>
+          </div>
+          <div class="kpi">
+            <strong>现金资产</strong>
+            <div class="num" id="cashAsset">¥0</div>
+          </div>
+        </div>
+        <div class="kpi" style="margin-top:8px;">
+          <strong>总身价 (Total Wealth)</strong>
+          <div class="num" id="totalWealth">¥0</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const state = {
+      day: 1,
+      cash: 8000,
+      pricePerCup: 18,
+      materialPerCup: 6,
+      rentPerDay: 200,
+      wagePerStaff: 60,
+      baseDemand: 40,
+      demandBonus: 0,
+      baseCapacity: 60,
+      staff: 0,
+      machines: 1,
+      machineDailyCapacity: 120,
+      marketingCost: 0,
+      cupSold: 0,
+      latestEbitda: 0,
+      valuationMultiple: 10,
+      referenceEnterpriseValue: 0,
+      yesterdayActual: null,
+      depreciationPerDay: 0,
+      depAssets: [] // {dailyDep, daysLeft}
+    };
+
+    const el = (id) => document.getElementById(id);
+    const fmt = (n) => `¥${Math.round(n).toLocaleString("zh-CN")}`;
+    function getTodayDemand() {
+      return state.baseDemand + state.demandBonus;
+    }
+
+    function getTodayCapacity() {
+      const byStaff = state.baseCapacity + state.staff * 30;
+      const byMachine = state.machines * state.machineDailyCapacity;
+      return Math.min(byStaff, byMachine);
+    }
+
+    function log(msg) {
+      const node = document.createElement("div");
+      node.textContent = `• ${msg}`;
+      el("log").prepend(node);
+    }
+
+    function computeFrom(cupsSold, dep) {
+      const revenue = cupsSold * state.pricePerCup;
+      const cogs = cupsSold * state.materialPerCup;
+      const wage = state.staff * state.wagePerStaff;
+      const rent = state.rentPerDay;
+      const mkt = state.marketingCost;
+      const ebitda = revenue - cogs - wage - rent - mkt;
+      const ebit = ebitda - dep;
+      return { revenue, cogs, wage, rent, mkt, ebitda, dep, ebit };
+    }
+
+    function getTodayDepreciation() {
+      let dep = 0;
+      for (const asset of state.depAssets) {
+        if (asset.daysLeft > 0) dep += asset.dailyDep;
+      }
+      return dep;
+    }
+
+    function renderDiff(elId, today, yesterday) {
+      const elNode = el(elId);
+      if (yesterday == null) {
+        elNode.textContent = "-";
+        elNode.className = "diff";
+        return;
+      }
+      if (today > yesterday) {
+        elNode.textContent = "↑";
+        elNode.className = "diff up";
+      } else if (today < yesterday) {
+        elNode.textContent = "↓";
+        elNode.className = "diff down";
+      } else {
+        elNode.textContent = "→";
+        elNode.className = "diff";
+      }
+    }
+
+    function render() {
+      const forecastCups = Math.min(getTodayDemand(), getTodayCapacity());
+      const forecast = computeFrom(forecastCups, getTodayDepreciation());
+      const y = state.yesterdayActual;
+      el("cash").textContent = fmt(state.cash);
+      el("pricePerCup").textContent = fmt(state.pricePerCup);
+      el("demand").textContent = getTodayDemand();
+      el("capacity").textContent = getTodayCapacity();
+      el("cups").textContent = forecastCups;
+      el("staff").textContent = state.staff;
+      el("machines").textContent = state.machines;
+      el("dayBadge").textContent = `Day ${state.day}`;
+
+      el("revY").textContent = y ? fmt(y.revenue) : "-";
+      el("cogsY").textContent = y ? fmt(y.cogs) : "-";
+      el("wageY").textContent = y ? fmt(y.wage) : "-";
+      el("rentY").textContent = y ? fmt(y.rent) : "-";
+      el("mktY").textContent = y ? fmt(y.mkt) : "-";
+      el("ebitdaY").innerHTML = y ? `<b>${fmt(y.ebitda)}</b>` : "<b>-</b>";
+      el("depY").textContent = y ? fmt(y.dep) : "-";
+      el("ebitY").innerHTML = y ? `<b>${fmt(y.ebit)}</b>` : "<b>-</b>";
+
+      el("revT").textContent = fmt(forecast.revenue);
+      el("cogsT").textContent = fmt(forecast.cogs);
+      el("wageT").textContent = fmt(forecast.wage);
+      el("rentT").textContent = fmt(forecast.rent);
+      el("mktT").textContent = fmt(forecast.mkt);
+      el("ebitdaT").innerHTML = `<b>${fmt(forecast.ebitda)}</b>`;
+      el("depT").textContent = fmt(forecast.dep);
+      el("ebitT").innerHTML = `<b>${fmt(forecast.ebit)}</b>`;
+
+      renderDiff("revD", forecast.revenue, y ? y.revenue : null);
+      renderDiff("cogsD", forecast.cogs, y ? y.cogs : null);
+      renderDiff("wageD", forecast.wage, y ? y.wage : null);
+      renderDiff("rentD", forecast.rent, y ? y.rent : null);
+      renderDiff("mktD", forecast.mkt, y ? y.mkt : null);
+      renderDiff("ebitdaD", forecast.ebitda, y ? y.ebitda : null);
+      renderDiff("depD", forecast.dep, y ? y.dep : null);
+      renderDiff("ebitD", forecast.ebit, y ? y.ebit : null);
+
+      el("kpiEbitda").textContent = fmt(forecast.ebitda);
+      el("kpiEbit").textContent = fmt(forecast.ebit);
+      el("kpiEbit").className = `num ${forecast.ebit >= 0 ? "ok" : "bad"}`;
+
+      const totalWealth = state.referenceEnterpriseValue + state.cash;
+      el("enterpriseValue").textContent = fmt(state.referenceEnterpriseValue);
+      el("cashAsset").textContent = fmt(state.cash);
+      el("totalWealth").textContent = fmt(totalWealth);
+    }
+
+    function buyMachine() {
+      const cost = 5000;
+      const usefulDays = 20;
+      if (state.cash < cost) {
+        log("现金不足，无法购买机器。");
+        return;
+      }
+      state.cash -= cost;
+      state.machines += 1;
+      state.depAssets.push({ dailyDep: cost / usefulDays, daysLeft: usefulDays });
+      log(`购买机器 -${fmt(cost)}；后续每日折旧 +${fmt(cost / usefulDays)}。`);
+      render();
+    }
+
+    function settleDepreciationForDay() {
+      let dep = 0;
+      for (const asset of state.depAssets) {
+        if (asset.daysLeft > 0) {
+          dep += asset.dailyDep;
+          asset.daysLeft -= 1;
+        }
+      }
+      state.depreciationPerDay = dep;
+      state.depAssets = state.depAssets.filter((a) => a.daysLeft > 0);
+    }
+
+    function nextDay() {
+      const demand = getTodayDemand();
+      const capacity = getTodayCapacity();
+      state.cupSold = Math.min(demand, capacity);
+
+      if (demand > capacity) {
+        log("需求旺盛！但产能不足，损失了潜在收入，请考虑升级设备或招人。");
+      } else if (capacity > demand) {
+        log("产能过剩！请加大营销力度，否则闲置人工和折旧会拖垮利润。");
+      }
+
+      settleDepreciationForDay();
+      const p = computeFrom(state.cupSold, state.depreciationPerDay);
+      const cashFlow = p.revenue - p.cogs - p.wage - p.rent - p.mkt;
+      const prevEnterpriseValue = state.referenceEnterpriseValue;
+      state.latestEbitda = p.ebitda;
+      const newEnterpriseValue = Math.max(0, state.latestEbitda) * state.valuationMultiple;
+      state.referenceEnterpriseValue = newEnterpriseValue;
+      state.yesterdayActual = p;
+      state.cash += cashFlow;
+
+      log(`Day ${state.day} 自动售卖 ${state.cupSold} 杯（需求 ${demand} / 产能 ${capacity}）。`);
+      log(`Day ${state.day} 结算：EBITDA ${fmt(p.ebitda)}，折旧 ${fmt(p.dep)}，EBIT ${fmt(p.ebit)}。`);
+      log(`现金变动（不含折旧）: ${fmt(cashFlow)}。`);
+      if (newEnterpriseValue > prevEnterpriseValue) {
+        log(`因为你的 EBITDA 增长了，公司在并购市场上多值了 ${fmt(newEnterpriseValue - prevEnterpriseValue)}！`);
+      } else if (newEnterpriseValue < prevEnterpriseValue) {
+        log(`因为你的 EBITDA 下滑了，公司在并购市场上少值了 ${fmt(prevEnterpriseValue - newEnterpriseValue)}！`);
+      }
+      if (state.day === 20) {
+        const passed = p.ebitda > 1000;
+        el("goalStatus").textContent = passed ? "已达成" : "未达成";
+        el("goalStatus").style.color = passed ? "#15803d" : "#b91c1c";
+        log(passed ? "第 20 天目标达成：单日 EBITDA > ¥1,000。" : "第 20 天目标未达成：请优化需求与产能配置。");
+      }
+
+      state.day += 1;
+      state.demandBonus = 0;
+      state.marketingCost = 0;
+      render();
+    }
+
+    function reset() {
+      Object.assign(state, {
+        day: 1,
+        cash: 8000,
+        pricePerCup: 18,
+        materialPerCup: 6,
+        rentPerDay: 200,
+        wagePerStaff: 60,
+        baseDemand: 40,
+        demandBonus: 0,
+        baseCapacity: 60,
+        staff: 0,
+        machines: 1,
+        machineDailyCapacity: 120,
+        marketingCost: 0,
+        cupSold: 0,
+        latestEbitda: 0,
+        valuationMultiple: 10,
+        referenceEnterpriseValue: 0,
+        yesterdayActual: null,
+        depreciationPerDay: 0,
+        depAssets: []
+      });
+      el("goalStatus").textContent = "进行中";
+      el("goalStatus").style.color = "#6b7280";
+      el("log").innerHTML = "";
+      log("已重置。点击“进入下一天”会自动按 min(日需求, 日产能) 结算销量。");
+      render();
+    }
+
+    el("marketingBtn").addEventListener("click", () => {
+      state.demandBonus += 40;
+      state.marketingCost += 200;
+      log("做营销：需求 +40，营销费 +¥200。");
+      render();
+    });
+    el("staffBtn").addEventListener("click", () => {
+      state.staff += 1;
+      log("新增一名店员：产能 +30 杯/日，每日工资 +¥60。");
+      render();
+    });
+    el("machineBtn").addEventListener("click", buyMachine);
+    el("nextDayBtn").addEventListener("click", nextDay);
+    el("resetBtn").addEventListener("click", reset);
+
+    log("开始营业。点击“进入下一天”自动结算，观察 EBITDA 与 EBIT 差异。");
+    render();
+  </script>
+</body>
+</html>
