@@ -18,11 +18,22 @@ const state = {
   referenceEnterpriseValue: 0,
   yesterdayActual: null,
   depreciationPerDay: 0,
-  depAssets: [] // {dailyDep, daysLeft}
+  depAssets: []
 };
+
+// Chart history
+const chartData = { ebitda: [], ebit: [], labels: [] };
 
 const el = (id) => document.getElementById(id);
 const fmt = (n) => `¥${Math.round(n).toLocaleString("zh-CN")}`;
+
+// Notify parent (if embedded in iframe) about game actions
+function notify(action) {
+  if (window.parent !== window) {
+    window.parent.postMessage({ source: "milk-tea-pro", action }, "*");
+  }
+}
+
 function getTodayDemand() {
   return state.baseDemand + state.demandBonus;
 }
@@ -77,6 +88,159 @@ function renderDiff(elId, today, yesterday) {
   }
 }
 
+// ── Chart Drawing ──
+let chartAnimId = null;
+
+function drawChartFrame(progress) {
+  const canvas = el("chartCanvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const ebitdaArr = chartData.ebitda;
+  const ebitArr = chartData.ebit;
+  if (ebitdaArr.length === 0) {
+    ctx.fillStyle = "rgba(148,163,184,0.3)";
+    ctx.font = "13px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("点击「进入下一天」开始记录走势", W / 2, H / 2);
+    return;
+  }
+
+  const all = [...ebitdaArr, ...ebitArr];
+  let maxVal = Math.max(...all, 100);
+  let minVal = Math.min(...all, 0);
+  const range = maxVal - minVal || 1;
+  const padT = 12, padB = 24, padL = 6, padR = 6;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  const toX = (i) => padL + (ebitdaArr.length === 1 ? chartW / 2 : (i / (ebitdaArr.length - 1)) * chartW);
+  const toY = (v) => padT + chartH - ((v - minVal) / range) * chartH;
+
+  // Zero line
+  if (minVal < 0 && maxVal > 0) {
+    const zeroY = toY(0);
+    ctx.beginPath();
+    ctx.strokeStyle = "rgba(148,163,184,0.15)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.moveTo(padL, zeroY);
+    ctx.lineTo(W - padR, zeroY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Draw a line with gradient fill, with animated last segment
+  function drawLine(data, color, fillColor) {
+    if (data.length < 1) return;
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    for (let i = 0; i < data.length; i++) {
+      let x = toX(i), y = toY(data[i]);
+      // Animate the last point
+      if (i === data.length - 1 && data.length > 1 && progress < 1) {
+        const prevX = toX(i - 1), prevY = toY(data[i - 1]);
+        x = prevX + (x - prevX) * progress;
+        y = prevY + (y - prevY) * progress;
+      }
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Fill area
+    ctx.beginPath();
+    for (let i = 0; i < data.length; i++) {
+      let x = toX(i), y = toY(data[i]);
+      if (i === data.length - 1 && data.length > 1 && progress < 1) {
+        const prevX = toX(i - 1), prevY = toY(data[i - 1]);
+        x = prevX + (x - prevX) * progress;
+        y = prevY + (y - prevY) * progress;
+      }
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    const lastX = data.length > 1 && progress < 1
+      ? toX(data.length - 2) + (toX(data.length - 1) - toX(data.length - 2)) * progress
+      : toX(data.length - 1);
+    ctx.lineTo(lastX, padT + chartH);
+    ctx.lineTo(toX(0), padT + chartH);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, padT, 0, padT + chartH);
+    grad.addColorStop(0, fillColor);
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Dots
+    for (let i = 0; i < data.length; i++) {
+      let x = toX(i), y = toY(data[i]);
+      if (i === data.length - 1 && data.length > 1 && progress < 1) {
+        const prevX = toX(i - 1), prevY = toY(data[i - 1]);
+        x = prevX + (x - prevX) * progress;
+        y = prevY + (y - prevY) * progress;
+      }
+      const dotSize = (i === data.length - 1 && progress < 1) ? 3 * progress : 3;
+      ctx.beginPath();
+      ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+  }
+
+  drawLine(ebitArr, "#818cf8", "rgba(129,140,248,0.08)");
+  drawLine(ebitdaArr, "#34d399", "rgba(52,211,153,0.1)");
+
+  // X labels
+  ctx.fillStyle = "rgba(148,163,184,0.5)";
+  ctx.font = "10px sans-serif";
+  ctx.textAlign = "center";
+  for (let i = 0; i < chartData.labels.length; i++) {
+    const alpha = (i === chartData.labels.length - 1 && progress < 1) ? progress : 1;
+    ctx.globalAlpha = alpha;
+    ctx.fillText(chartData.labels[i], toX(i), H - 4);
+  }
+  ctx.globalAlpha = 1;
+
+  // Latest value labels
+  if (ebitdaArr.length > 0 && progress >= 1) {
+    const lastIdx = ebitdaArr.length - 1;
+    ctx.font = "bold 11px sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#34d399";
+    ctx.fillText(fmt(ebitdaArr[lastIdx]), toX(lastIdx) - 6, toY(ebitdaArr[lastIdx]) - 6);
+    ctx.fillStyle = "#818cf8";
+    ctx.fillText(fmt(ebitArr[lastIdx]), toX(lastIdx) - 6, toY(ebitArr[lastIdx]) + 16);
+  }
+}
+
+function drawChart(animate) {
+  if (chartAnimId) { cancelAnimationFrame(chartAnimId); chartAnimId = null; }
+  if (!animate || chartData.ebitda.length <= 1) {
+    drawChartFrame(1);
+    return;
+  }
+  const duration = 400;
+  const start = performance.now();
+  function tick(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+    drawChartFrame(ease);
+    if (t < 1) { chartAnimId = requestAnimationFrame(tick); }
+    else { chartAnimId = null; }
+  }
+  chartAnimId = requestAnimationFrame(tick);
+}
+
 function render() {
   const forecastCups = Math.min(getTodayDemand(), getTodayCapacity());
   const forecast = computeFrom(forecastCups, getTodayDepreciation());
@@ -108,6 +272,28 @@ function render() {
   el("depT").textContent = fmt(forecast.dep);
   el("ebitT").innerHTML = `<b>${fmt(forecast.ebit)}</b>`;
 
+  // Color-code "今日预计" cells: green if better, red if worse than yesterday
+  // For revenue/ebitda/ebit: higher is better. For costs (cogs/wage/rent/mkt/dep): lower is better.
+  function colorCell(elId, today, yesterday, higherIsBetter) {
+    const node = el(elId);
+    if (yesterday == null) { node.style.color = ""; return; }
+    if (higherIsBetter ? today > yesterday : today < yesterday) {
+      node.style.color = "var(--ok)";
+    } else if (higherIsBetter ? today < yesterday : today > yesterday) {
+      node.style.color = "var(--bad)";
+    } else {
+      node.style.color = "";
+    }
+  }
+  colorCell("revT", forecast.revenue, y ? y.revenue : null, true);
+  colorCell("cogsT", forecast.cogs, y ? y.cogs : null, false);
+  colorCell("wageT", forecast.wage, y ? y.wage : null, false);
+  colorCell("rentT", forecast.rent, y ? y.rent : null, false);
+  colorCell("mktT", forecast.mkt, y ? y.mkt : null, false);
+  colorCell("ebitdaT", forecast.ebitda, y ? y.ebitda : null, true);
+  colorCell("depT", forecast.dep, y ? y.dep : null, false);
+  colorCell("ebitT", forecast.ebit, y ? y.ebit : null, true);
+
   renderDiff("revD", forecast.revenue, y ? y.revenue : null);
   renderDiff("cogsD", forecast.cogs, y ? y.cogs : null);
   renderDiff("wageD", forecast.wage, y ? y.wage : null);
@@ -119,12 +305,14 @@ function render() {
 
   el("kpiEbitda").textContent = fmt(forecast.ebitda);
   el("kpiEbit").textContent = fmt(forecast.ebit);
-  el("kpiEbit").className = `num ${forecast.ebit >= 0 ? "ok" : "bad"}`;
+  el("kpiEbit").className = `kpi-num ${forecast.ebit >= 0 ? "ok" : "bad"}`;
 
   const totalWealth = state.referenceEnterpriseValue + state.cash;
   el("enterpriseValue").textContent = fmt(state.referenceEnterpriseValue);
   el("cashAsset").textContent = fmt(state.cash);
   el("totalWealth").textContent = fmt(totalWealth);
+
+  drawChart(false);
 }
 
 function buyMachine() {
@@ -138,6 +326,7 @@ function buyMachine() {
   state.machines += 1;
   state.depAssets.push({ dailyDep: cost / usefulDays, daysLeft: usefulDays });
   log(`购买机器 -${fmt(cost)}；后续每日折旧 +${fmt(cost / usefulDays)}。`);
+  notify("machine");
   render();
 }
 
@@ -174,6 +363,11 @@ function nextDay() {
   state.yesterdayActual = p;
   state.cash += cashFlow;
 
+  // Push to chart
+  chartData.ebitda.push(p.ebitda);
+  chartData.ebit.push(p.ebit);
+  chartData.labels.push(`D${state.day}`);
+
   log(`Day ${state.day} 自动售卖 ${state.cupSold} 杯（需求 ${demand} / 产能 ${capacity}）。`);
   log(`Day ${state.day} 结算：EBITDA ${fmt(p.ebitda)}，折旧 ${fmt(p.dep)}，EBIT ${fmt(p.ebit)}。`);
   log(`现金变动（不含折旧）: ${fmt(cashFlow)}。`);
@@ -184,15 +378,20 @@ function nextDay() {
   }
   if (state.day === 20) {
     const passed = p.ebitda > 1000;
-    el("goalStatus").textContent = passed ? "已达成" : "未达成";
-    el("goalStatus").style.color = passed ? "#15803d" : "#b91c1c";
+    const gs = el("goalStatus");
+    gs.textContent = passed ? "已达成" : "未达成";
+    gs.style.background = passed ? "rgba(52,211,153,0.15)" : "rgba(248,113,113,0.15)";
+    gs.style.color = passed ? "#34d399" : "#f87171";
     log(passed ? "第 20 天目标达成：单日 EBITDA > ¥1,000。" : "第 20 天目标未达成：请优化需求与产能配置。");
+    notify(passed ? "goal_pass" : "goal_fail");
   }
 
+  notify("settle");
   state.day += 1;
   state.demandBonus = 0;
   state.marketingCost = 0;
   render();
+  drawChart(true); // animate the new data point
 }
 
 function reset() {
@@ -218,10 +417,15 @@ function reset() {
     depreciationPerDay: 0,
     depAssets: []
   });
-  el("goalStatus").textContent = "进行中";
-  el("goalStatus").style.color = "#6b7280";
+  chartData.ebitda.length = 0;
+  chartData.ebit.length = 0;
+  chartData.labels.length = 0;
+  const gs = el("goalStatus");
+  gs.textContent = "进行中";
+  gs.style.background = "rgba(148,163,184,0.1)";
+  gs.style.color = "#94a3b8";
   el("log").innerHTML = "";
-  log("已重置。点击“进入下一天”会自动按 min(日需求, 日产能) 结算销量。");
+  log('已重置。点击"进入下一天"会自动按 min(日需求, 日产能) 结算销量。');
   render();
 }
 
@@ -229,16 +433,21 @@ el("marketingBtn").addEventListener("click", () => {
   state.demandBonus += 40;
   state.marketingCost += 200;
   log("做营销：需求 +40，营销费 +¥200。");
+  notify("marketing");
   render();
 });
 el("staffBtn").addEventListener("click", () => {
   state.staff += 1;
   log("新增一名店员：产能 +30 杯/日，每日工资 +¥60。");
+  notify("hire");
   render();
 });
 el("machineBtn").addEventListener("click", buyMachine);
 el("nextDayBtn").addEventListener("click", nextDay);
 el("resetBtn").addEventListener("click", reset);
 
-log("开始营业。点击“进入下一天”自动结算，观察 EBITDA 与 EBIT 差异。");
+// Handle resize for chart
+window.addEventListener("resize", () => drawChart(false));
+
+log('开始营业。点击"进入下一天"自动结算，观察 EBITDA 与 EBIT 差异。');
 render();

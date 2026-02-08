@@ -2,3 +2,4 @@
 .dockerignore
 .DS_Store
 node_modules/
+client-dev.log

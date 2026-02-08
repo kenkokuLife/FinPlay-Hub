@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum GameDifficulty {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+enum GameCategory {
+  FINANCE
+  STRATEGY
+  OPERATIONS
+  INVESTING
+  OTHER
+}
+
+enum GameStatus {
+  PENDING
+  ACTIVE
+  ARCHIVED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Game {
+  id         String          @id @default(cuid())
+  title      String
+  slug       String          @unique
+  difficulty GameDifficulty @default(MEDIUM)
+  category   GameCategory   @default(OTHER)
+  status     GameStatus     @default(PENDING)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+}

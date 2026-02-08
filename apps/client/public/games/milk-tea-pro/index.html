@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>奶茶店经营模拟器（EBITDA 重点版）</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --surface: #111827;
+      --card: rgba(17, 24, 39, 0.7);
+      --border: rgba(99, 102, 241, 0.15);
+      --border-glow: rgba(99, 102, 241, 0.35);
+      --ink: #e2e8f0;
+      --muted: #94a3b8;
+      --brand: #818cf8;
+      --brand-bright: #a5b4fc;
+      --ok: #34d399;
+      --ok-dim: rgba(52, 211, 153, 0.15);
+      --warn: #fbbf24;
+      --warn-dim: rgba(251, 191, 36, 0.15);
+      --bad: #f87171;
+      --bad-dim: rgba(248, 113, 113, 0.15);
+      --orange: #fb923c;
+      --line: rgba(148, 163, 184, 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      font-family: -apple-system, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      min-height: 100vh;
+      padding: 20px;
+      background-image:
+        radial-gradient(ellipse at 15% 80%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 85% 20%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
+    }
+
+    /* ── Goal Bar ── */
+    .goal-bar {
+      max-width: 1140px;
+      margin: 0 auto 14px;
+      padding: 12px 18px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 14px;
+    }
+    .goal-bar b { color: var(--brand-bright); }
+    #goalStatus {
+      font-weight: 700;
+      padding: 3px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: rgba(148, 163, 184, 0.1);
+      color: var(--muted);
+    }
+
+    /* ── Layout ── */
+    .app {
+      max-width: 1140px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1.25fr;
+      gap: 14px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(12px);
+    }
+    .card-glow {
+      box-shadow: 0 0 30px rgba(99, 102, 241, 0.06), inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+
+    h1 { font-size: 22px; margin-bottom: 6px; color: #fff; }
+    h2 { font-size: 18px; color: #fff; }
+    .sub {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .sub b { color: var(--ink); }
+
+    /* ── Glow Metrics ── */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .metric {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .metric:hover {
+      border-color: var(--border-glow);
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.1);
+    }
+    .metric .label { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+    .metric .value {
+      font-size: 18px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: #fff;
+    }
+
+    /* ── Actions ── */
+    .actions { display: grid; gap: 8px; margin-top: 12px; }
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.06s, opacity 0.15s, box-shadow 0.2s;
+    }
+    button:hover { opacity: 0.9; }
+    button:active { transform: translateY(1px); }
+    .btn-main {
+      background: linear-gradient(135deg, #007cf0, #00dfd8);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(0, 124, 240, 0.35);
+    }
+    .btn-main:hover { opacity: 1; box-shadow: 0 4px 28px rgba(0, 124, 240, 0.5); }
+    .btn-sub {
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .btn-sub:hover { background: rgba(255, 255, 255, 0.1); opacity: 1; }
+    .btn-warn {
+      background: linear-gradient(135deg, #b8860b, #8b6508);
+      color: #fff;
+      border: none;
+      box-shadow: 0 4px 16px rgba(184, 134, 11, 0.25);
+    }
+    .btn-warn:hover { opacity: 1; box-shadow: 0 4px 24px rgba(184, 134, 11, 0.4); }
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .btn-ghost:hover { background: rgba(255, 255, 255, 0.1); opacity: 1; }
+
+    /* ── Log ── */
+    .log {
+      margin-top: 12px;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      height: 150px;
+      overflow-y: auto;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .log::-webkit-scrollbar { width: 4px; }
+    .log::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.2); border-radius: 4px; }
+
+    /* ── Chart ── */
+    .chart-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .chart-header h3 { font-size: 14px; color: #fff; margin: 0; }
+    .chart-legend { display: flex; gap: 14px; font-size: 11px; color: var(--muted); }
+    .chart-legend span::before {
+      content: "";
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+    .legend-ebitda::before { background: var(--ok); }
+    .legend-ebit::before { background: var(--brand); }
+    .chart-canvas {
+      width: 100%;
+      height: 120px;
+      display: block;
+    }
+
+    /* ── Report Table ── */
+    .report-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .day-badge {
+      background: linear-gradient(135deg, #6366f1, #818cf8);
+      color: #fff;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+    th, td {
+      padding: 7px 4px;
+      border-bottom: 1px solid var(--line);
+    }
+    th {
+      text-align: left;
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    td { color: var(--ink); }
+    td.muted-cell { color: var(--muted); }
+    td:nth-child(2), td:nth-child(3), td:nth-child(4),
+    th:nth-child(2), th:nth-child(3), th:nth-child(4) {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .diff { display: inline-block; min-width: 16px; text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .diff.up { color: var(--ok); }
+    .diff.down { color: var(--bad); }
+
+    /* ── KPI Glow Cards ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .kpi-card:hover {
+      border-color: var(--border-glow);
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
+    }
+    .kpi-card.glow-ok { border-color: rgba(52, 211, 153, 0.25); }
+    .kpi-card.glow-ok:hover { border-color: rgba(52, 211, 153, 0.4); box-shadow: 0 0 20px rgba(52, 211, 153, 0.08); }
+    .kpi-card.glow-warn { border-color: rgba(251, 191, 36, 0.2); }
+    .kpi-card.glow-warn:hover { border-color: rgba(251, 191, 36, 0.35); box-shadow: 0 0 20px rgba(251, 191, 36, 0.08); }
+    .kpi-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .kpi-num { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .kpi-card.full { grid-column: 1 / -1; }
+
+    .ok { color: var(--ok); }
+    .bad { color: var(--bad); }
+    .warn-text { color: var(--warn); }
+
+    .section-label {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .valuation-box {
+      margin-top: 14px;
+      border-color: rgba(99, 102, 241, 0.2);
+      background: rgba(99, 102, 241, 0.04);
+    }
+    .val-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .val-header h3 { font-size: 15px; color: var(--brand-bright); margin: 0; }
+    .val-badge {
+      background: rgba(99, 102, 241, 0.15);
+      color: var(--brand-bright);
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="goal-bar">
+    <div>
+      <b>游戏目标：</b>在 <b>第 20 天</b> 实现 <b>单日 EBITDA &gt; ¥1,000</b>
+    </div>
+    <span id="goalStatus">进行中</span>
+  </div>
+
+  <div class="app">
+    <!-- ── Left: Controls ── -->
+    <section class="card card-glow">
+      <h1>奶茶店经营模拟器</h1>
+      <p class="sub">
+        左侧做经营动作，点击"进入下一天"自动结算销量。<b>重点：</b>买机器会增加折旧，影响 EBIT，
+        但不会直接改变 EBITDA（核心经营能力）。
+      </p>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="label">现金</div>
+          <div class="value" id="cash">¥0</div>
+        </div>
+        <div class="metric">
+          <div class="label">售价/杯</div>
+          <div class="value" id="pricePerCup">¥0</div>
+        </div>
+        <div class="metric">
+          <div class="label">日需求</div>
+          <div class="value" id="demand">40</div>
+        </div>
+        <div class="metric">
+          <div class="label">日产能</div>
+          <div class="value" id="capacity">60</div>
+        </div>
+        <div class="metric">
+          <div class="label">今日销量</div>
+          <div class="value" id="cups">0</div>
+        </div>
+        <div class="metric">
+          <div class="label">店员</div>
+          <div class="value" id="staff">0</div>
+        </div>
+        <div class="metric">
+          <div class="label">机器</div>
+          <div class="value" id="machines">1</div>
+        </div>
+      </div>
+
+      <p class="sub" style="margin-bottom:4px;">
+        每台机器日产能上限 <b>120 杯</b>，人手充足时受机器封顶。
+      </p>
+
+      <div class="actions">
+        <button class="btn-sub" id="marketingBtn">做营销（+40 杯需求，花费 ¥200）</button>
+        <button class="btn-ghost" id="staffBtn">加一名店员（+30 杯产能，每日工资 +¥60）</button>
+        <button class="btn-warn" id="machineBtn">购买高端封口机（¥5,000，折旧 20 天）</button>
+        <button class="btn-main" id="nextDayBtn">进入下一天（自动售卖并结算）</button>
+        <button class="btn-ghost" id="resetBtn">重置</button>
+      </div>
+
+      <div class="log" id="log"></div>
+    </section>
+
+    <!-- ── Right: Dashboard ── -->
+    <section class="card card-glow">
+      <!-- Chart -->
+      <div class="chart-box">
+        <div class="chart-header">
+          <h3>EBITDA / EBIT 走势</h3>
+          <div class="chart-legend">
+            <span class="legend-ebitda">EBITDA</span>
+            <span class="legend-ebit">EBIT</span>
+          </div>
+        </div>
+        <canvas id="chartCanvas" class="chart-canvas"></canvas>
+      </div>
+
+      <!-- P&L Table -->
+      <div class="report-header">
+        <h2>今日利润表</h2>
+        <span class="day-badge" id="dayBadge">Day 1</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36%;">科目</th>
+            <th style="width:24%;">昨日实际</th>
+            <th style="width:24%;">今日预计</th>
+            <th style="width:16%;"></th>
+          </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>营业收入</td>
+          <td id="revY">-</td>
+          <td id="revT">¥0</td>
+          <td><span class="diff" id="revD">-</span></td>
+        </tr>
+        <tr>
+          <td class="muted-cell">- 原料成本</td>
+          <td id="cogsY">-</td>
+          <td id="cogsT">¥0</td>
+          <td><span class="diff" id="cogsD">-</span></td>
+        </tr>
+        <tr>
+          <td class="muted-cell">- 工资</td>
+          <td id="wageY">-</td>
+          <td id="wageT">¥0</td>
+          <td><span class="diff" id="wageD">-</span></td>
+        </tr>
+        <tr>
+          <td class="muted-cell">- 房租</td>
+          <td id="rentY">-</td>
+          <td id="rentT">¥0</td>
+          <td><span class="diff" id="rentD">-</span></td>
+        </tr>
+        <tr>
+          <td class="muted-cell">- 营销费</td>
+          <td id="mktY">-</td>
+          <td id="mktT">¥0</td>
+          <td><span class="diff" id="mktD">-</span></td>
+        </tr>
+        <tr style="border-top:1px solid rgba(99,102,241,0.2);">
+          <td><b style="color:var(--ok)">EBITDA</b></td>
+          <td id="ebitdaY"><b>-</b></td>
+          <td id="ebitdaT"><b>¥0</b></td>
+          <td><span class="diff" id="ebitdaD">-</span></td>
+        </tr>
+        <tr>
+          <td class="muted-cell">- 折旧（非现金）</td>
+          <td id="depY">-</td>
+          <td id="depT">¥0</td>
+          <td><span class="diff" id="depD">-</span></td>
+        </tr>
+        <tr>
+          <td><b style="color:var(--brand-bright)">EBIT</b></td>
+          <td id="ebitY"><b>-</b></td>
+          <td id="ebitT"><b>¥0</b></td>
+          <td><span class="diff" id="ebitD">-</span></td>
+        </tr>
+        </tbody>
+      </table>
+      <p style="font-size:11px;color:var(--muted);opacity:0.7;margin:-8px 0 14px;line-height:1.5;">
+        提示：CapEx 投资不影响 EBITDA，但会产生折旧影响 EBIT
+      </p>
+
+      <!-- KPI Cards -->
+      <div class="section-label">
+        买机器时现金立刻减少（CapEx），后续每天计提折旧。折旧不计入 EBITDA。
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card glow-ok">
+          <div class="kpi-label">EBITDA</div>
+          <div class="kpi-num ok" id="kpiEbitda">¥0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">EBIT（含折旧）</div>
+          <div class="kpi-num" id="kpiEbit">¥0</div>
+        </div>
+      </div>
+
+      <!-- Valuation -->
+      <div class="kpi-card valuation-box" style="margin-top:14px;">
+        <div class="val-header">
+          <h3>市场估值报告</h3>
+          <span class="val-badge">估值 = EBITDA × 10</span>
+        </div>
+        <div class="kpi-grid" style="margin-top:8px;">
+          <div class="kpi-card glow-ok">
+            <div class="kpi-label">参考估值</div>
+            <div class="kpi-num ok" id="enterpriseValue">¥0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">现金资产</div>
+            <div class="kpi-num" id="cashAsset" style="color:#fff;">¥0</div>
+          </div>
+          <div class="kpi-card full glow-warn">
+            <div class="kpi-label">总身价 (Total Wealth)</div>
+            <div class="kpi-num warn-text" id="totalWealth">¥0</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/games/milk-tea-pro/script.js?v=3"></script>
+</body>
+</html>

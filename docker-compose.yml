@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: app
       POSTGRES_DB: happy_report
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
   api:
@@ -29,15 +29,20 @@ services:
       ADMIN_REG_SECRET: admin_secret
     ports:
       - "3000:3000"
-    volumes:
-      - ./games:/games
   client:
     build: ./apps/client
     container_name: finplay_client
     depends_on:
+      - db
       - api
+    environment:
+      DATABASE_URL: postgresql://app:app@db:5432/happy_report
     ports:
       - "3001:3001"
+    volumes:
+      - ./apps/client:/app
+      - /app/node_modules
+      - /app/.next
 
 volumes:
   pgdata:

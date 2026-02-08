@@ -6,11 +6,17 @@
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3001",
     "build": "next build",
-    "start": "next start -H 0.0.0.0 -p 3001"
+    "start": "next start -H 0.0.0.0 -p 3001",
+    "prisma": "prisma",
+    "db:generate": "prisma generate"
   },
   "dependencies": {
+    "@prisma/client": "^5.16.2",
     "next": "^14.2.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "prisma": "^5.16.2"
   }
 }
