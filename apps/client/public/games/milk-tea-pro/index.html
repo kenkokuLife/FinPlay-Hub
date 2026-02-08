@@ -143,18 +143,30 @@
     }
     .btn-sub:hover { background: rgba(255, 255, 255, 0.1); opacity: 1; }
     .btn-warn {
-      background: linear-gradient(135deg, #b8860b, #8b6508);
-      color: #fff;
-      border: none;
-      box-shadow: 0 4px 16px rgba(184, 134, 11, 0.25);
+      background: rgba(255, 255, 255, 0.03);
+      color: #daa520;
+      border: 1px solid rgba(184, 134, 11, 0.4);
     }
-    .btn-warn:hover { opacity: 1; box-shadow: 0 4px 24px rgba(184, 134, 11, 0.4); }
+    .btn-warn:hover { background: rgba(184, 134, 11, 0.08); opacity: 1; }
     .btn-ghost {
       background: rgba(255, 255, 255, 0.05);
       color: rgba(255, 255, 255, 0.7);
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
     .btn-ghost:hover { background: rgba(255, 255, 255, 0.1); opacity: 1; }
+
+    /* ── Button dot icons ── */
+    .dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .dot-blue { background: #60a5fa; }
+    .dot-green { background: #34d399; }
+    .dot-gold { background: #daa520; }
 
     /* ── Log ── */
     .log {
@@ -172,13 +184,23 @@
     .log::-webkit-scrollbar { width: 4px; }
     .log::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.2); border-radius: 4px; }
 
+    /* ── Dashboard 2-col ── */
+    .dash-top {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
     /* ── Chart ── */
     .chart-box {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 16px;
-      margin-bottom: 14px;
+      margin-bottom: 0;
+      display: flex;
+      flex-direction: column;
     }
     .chart-header {
       display: flex;
@@ -202,6 +224,13 @@
       width: 100%;
       height: 120px;
       display: block;
+      flex: 1;
+    }
+
+    /* ── P&L Column ── */
+    .pl-col {
+      display: flex;
+      flex-direction: column;
     }
 
     /* ── Report Table ── */
@@ -306,6 +335,7 @@
 
     @media (max-width: 900px) {
       .app { grid-template-columns: 1fr; }
+      .dash-top { grid-template-columns: 1fr; }
       .metrics { grid-template-columns: repeat(3, 1fr); }
     }
   </style>
@@ -364,9 +394,9 @@
       </p>
 
       <div class="actions">
-        <button class="btn-sub" id="marketingBtn">做营销（+40 杯需求，花费 ¥200）</button>
-        <button class="btn-ghost" id="staffBtn">加一名店员（+30 杯产能，每日工资 +¥60）</button>
-        <button class="btn-warn" id="machineBtn">购买高端封口机（¥5,000，折旧 20 天）</button>
+        <button class="btn-sub" id="marketingBtn"><span class="dot dot-blue"></span>做营销（+40 杯需求，花费 ¥200）</button>
+        <button class="btn-ghost" id="staffBtn"><span class="dot dot-green"></span>加一名店员（+30 杯产能，每日工资 +¥60）</button>
+        <button class="btn-warn" id="machineBtn"><span class="dot dot-gold"></span>购买高端封口机（¥5,000，折旧 20 天）</button>
         <button class="btn-main" id="nextDayBtn">进入下一天（自动售卖并结算）</button>
         <button class="btn-ghost" id="resetBtn">重置</button>
       </div>
@@ -376,25 +406,15 @@
 
     <!-- ── Right: Dashboard ── -->
     <section class="card card-glow">
-      <!-- Chart -->
-      <div class="chart-box">
-        <div class="chart-header">
-          <h3>EBITDA / EBIT 走势</h3>
-          <div class="chart-legend">
-            <span class="legend-ebitda">EBITDA</span>
-            <span class="legend-ebit">EBIT</span>
+      <div class="dash-top">
+        <!-- P&L Table (left) -->
+        <div class="pl-col">
+          <div class="report-header">
+            <h2>今日利润表</h2>
+            <span class="day-badge" id="dayBadge">Day 1</span>
           </div>
-        </div>
-        <canvas id="chartCanvas" class="chart-canvas"></canvas>
-      </div>
 
-      <!-- P&L Table -->
-      <div class="report-header">
-        <h2>今日利润表</h2>
-        <span class="day-badge" id="dayBadge">Day 1</span>
-      </div>
-
-      <table>
+          <table>
         <thead>
           <tr>
             <th style="width:36%;">科目</th>
@@ -454,9 +474,23 @@
         </tr>
         </tbody>
       </table>
-      <p style="font-size:11px;color:var(--muted);opacity:0.7;margin:-8px 0 14px;line-height:1.5;">
-        提示：CapEx 投资不影响 EBITDA，但会产生折旧影响 EBIT
-      </p>
+          <p style="font-size:11px;color:var(--muted);opacity:0.7;margin:-8px 0 0;line-height:1.5;">
+            提示：CapEx 投资不影响 EBITDA，但会产生折旧影响 EBIT
+          </p>
+        </div>
+
+        <!-- Chart (right) -->
+        <div class="chart-box">
+          <div class="chart-header">
+            <h3>EBITDA / EBIT 走势</h3>
+            <div class="chart-legend">
+              <span class="legend-ebitda">EBITDA</span>
+              <span class="legend-ebit">EBIT</span>
+            </div>
+          </div>
+          <canvas id="chartCanvas" class="chart-canvas"></canvas>
+        </div>
+      </div>
 
       <!-- KPI Cards -->
       <div class="section-label">
@@ -497,6 +531,6 @@
     </section>
   </div>
 
-  <script src="/games/milk-tea-pro/script.js?v=3"></script>
+  <script src="/games/milk-tea-pro/script.js?v=4"></script>
 </body>
 </html>
