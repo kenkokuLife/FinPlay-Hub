@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>M&A Negotiation: The Value Bridge</title>
+    <style>
+        :root { --accent: #3b82f6; --danger: #f43f5e; --bg: #0f172a; --panel: #1e293b; }
+        body { background: var(--bg); color: #f1f5f9; font-family: 'Meiryo', sans-serif; margin: 0; display: flex; height: 100vh; }
+        
+        /* 估值桥梁面板 */
+        .sidebar { width: 400px; background: #020617; padding: 25px; border-right: 2px solid #334155; }
+        .price-box { background: var(--panel); padding: 20px; border-radius: 12px; text-align: center; border: 1px solid var(--accent); }
+        .price-val { font-size: 32px; font-weight: bold; color: var(--accent); }
+        
+        /* 谈判区 */
+        .main-content { flex: 1; padding: 40px; overflow-y: auto; }
+        .negotiation-card { background: var(--panel); padding: 25px; border-radius: 15px; margin-bottom: 25px; border-left: 8px solid #475569; }
+        .negotiation-card.done { opacity: 0.5; pointer-events: none; }
+        
+        .trust-bar { width: 100%; height: 10px; background: #334155; border-radius: 5px; margin: 10px 0; overflow: hidden; }
+        .trust-fill { height: 100%; background: #10b981; transition: 0.5s; width: 100%; }
+
+        /* 按钮 */
+        .choice-btn { margin-right: 10px; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; background: #475569; color: white; }
+        .choice-btn:hover { background: var(--accent); }
+        
+        /* 日志记录 */
+        .history-log { margin-top: 20px; font-size: 12px; color: #94a3b8; line-height: 1.6; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2 style="color: var(--accent);">Value Bridge</h2>
+        <p style="font-size:12px; color:#94a3b8;">初始协议价 (LOI Price): ¥10,000</p>
+        
+        <div class="price-box">
+            <div style="font-size:12px;">当前最终报价 (Final Offer)</div>
+            <div id="final-price" class="price-val">¥10,000</div>
+        </div>
+
+        <div style="margin-top:30px;">
+            <div style="font-size:12px; margin-bottom:5px;">卖方信任度 (Trust Level)</div>
+            <div class="trust-bar"><div id="trust-fill" class="trust-fill"></div></div>
+        </div>
+
+        <div class="history-log" id="history-log">
+            <b>谈判纪要 (Negotiation Notes):</b><br>
+        </div>
+
+        <button onclick="finalizeDeal()" style="width:100%; margin-top:30px; padding:15px; background:var(--accent); border:none; border-radius:8px; font-weight:bold; cursor:pointer;">签署 SPA (Closing)</button>
+    </div>
+
+    <div class="main-content">
+        <h1>SPA 谈判阶段：深度扣减项</h1>
+        <p>你需要向卖方老板（Tanaka-san）说明每一项扣减的理由。理由不当会激怒对方。</p>
+        <div id="deck"></div>
+    </div>
+
+<script>
+    let price = 10000;
+    let trust = 100;
+    let history = [];
+
+    const scenarios = [
+        {
+            id: 's1',
+            title: "【关联交易】原材料采购溢价",
+            desc_jp: "社長の親族が経営する会社から、相場より20%高い価格で原材料を仕入れていることが判明。",
+            desc_cn: "发现公司从社长亲戚经营的公司采购原材料，价格比市场价高出 20%。",
+            options: [
+                { text: "要求调增 EBITDA", impact: -1200, trust: 0, reason: "理由充分：这部分溢价是买方接手后可以省下的利润。" },
+                { text: "要求调减 Net Debt", impact: -200, trust: -20, reason: "逻辑错误：这是利润表问题，不是债务。卖方觉得你不专业。" }
+            ],
+            correctIdx: 0
+        },
+        {
+            id: 's2',
+            title: "【营运资本】交割前催款",
+            desc_jp: "売主がクロージング直前に売掛金を強引に回収し、現金を抜き取ろうとしている。",
+            desc_cn: "卖方在交割前疯狂催收应收账款，试图把现金全部抽走，留下一个没有周转资金的烂摊子。",
+            options: [
+                { text: "设定营运资本基准(WC Target)", impact: -500, trust: 0, reason: "专业：确保交割时公司有足够的运营资金。" },
+                { text: "不予理会", impact: 0, trust: -10, reason: "失职：你接手后发现账上没钱发工资，不得不自己注资。" }
+            ],
+            correctIdx: 0
+        }
+    ];
+
+    function render() {
+        const deck = document.getElementById('deck');
+        scenarios.forEach((s, idx) => {
+            const card = document.createElement('div');
+            card.className = 'negotiation-card';
+            card.id = s.id;
+            card.innerHTML = `
+                <div style="font-weight:bold; font-size:18px; color:var(--accent);">${s.title}</div>
+                <p style="font-size:14px;">${s.desc_jp}<br><small style="color:#94a3b8">${s.desc_cn}</small></p>
+                <div>
+                    ${s.options.map((opt, i) => `<button class="choice-btn" onclick="negotiate('${s.id}', ${i})">${opt.text}</button>`).join('')}
+                </div>
+            `;
+            deck.appendChild(card);
+        });
+    }
+
+    function negotiate(sid, oidx) {
+        const s = scenarios.find(x => x.id === sid);
+        const opt = s.options[oidx];
+        const card = document.getElementById(sid);
+        
+        price += opt.impact;
+        trust += opt.trust;
+        history.push({ title: s.title, decision: opt.text, result: opt.reason, impact: opt.impact });
+
+        document.getElementById('final-price').innerText = "¥" + price.toLocaleString();
+        document.getElementById('trust-fill').style.width = trust + "%";
+        
+        const log = document.getElementById('history-log');
+        log.innerHTML += `· ${s.title}: ${opt.impact >= 0 ? '+' : ''}${opt.impact}<br>`;
+        
+        card.classList.add('done');
+        if(trust <= 0) alert("谈判破裂！卖方掀桌子走人了。");
+    }
+
+    function finalizeDeal() {
+        let report = "【SPA 审计复盘】\n\n";
+        history.forEach(h => {
+            report += `■ ${h.title}\n判断: ${h.decision}\n解析: ${h.result}\n金额影响: ${h.impact}\n\n`;
+        });
+        alert(report + "最终成交价: ¥" + price.toLocaleString());
+    }
+
+    render();
+</script>
+</body>
+</html>

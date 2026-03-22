@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>M&A Valuation Master - 概念通关版</title>
+    <style>
+        :root { --accent: #10b981; --warn: #f59e0b; --danger: #ef4444; --bg: #020617; --panel: #1e293b; --text-sub: #94a3b8; }
+        * { box-sizing: border-box; }
+        body { background: var(--bg); color: #f1f5f9; font-family: 'Segoe UI', 'Meiryo', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+
+        /* 左列：公式看板 + 操作日志 */
+        .sidebar { width: 280px; background: #0f172a; border-right: 2px solid #334155; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; min-height: 0; }
+
+        .formula-card { background: #111827; border: 1px solid var(--accent); border-radius: 12px; padding: 15px; flex-shrink: 0; }
+        .formula-title { color: var(--accent); font-size: 13px; font-weight: bold; margin-bottom: 12px; }
+        .formula-line { display: flex; align-items: center; justify-content: space-between; margin: 7px 0; font-family: 'Courier New', monospace; font-size: 14px; }
+        .math-symbol { color: var(--warn); font-weight: bold; font-size: 18px; min-width: 16px; }
+        .formula-line hr { border: 0; border-top: 1px solid #334155; margin: 4px 0; }
+
+        /* 操作日志 */
+        .log-section { margin-top: 14px; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+        .log-title { font-size: 11px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; flex-shrink: 0; }
+        .log-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+        .log-entry { border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.5; }
+        .log-ok { background: rgba(16,185,129,0.1); border-left: 3px solid var(--accent); }
+        .log-fail { background: rgba(239,68,68,0.1); border-left: 3px solid var(--danger); }
+        .log-label { font-weight: bold; margin-bottom: 2px; }
+        .log-detail { color: var(--text-sub); font-size: 11px; }
+
+        /* 右列：任务卡片 */
+        .main-content { flex: 1; padding: 24px 28px; overflow-y: auto; }
+        .main-title { margin: 0 0 6px; font-size: 20px; }
+        .main-sub { color: var(--text-sub); font-size: 13px; margin-bottom: 20px; }
+
+        .dd-card { background: var(--panel); border: 1px solid #334155; border-radius: 12px; padding: 18px; margin-bottom: 16px; transition: opacity 0.3s; }
+        .dd-card.resolved { opacity: 0.35; pointer-events: none; border-color: #1e293b; }
+
+        .choice-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+        .choice-btn { padding: 10px 6px; border: none; border-radius: 6px; cursor: pointer; color: white; font-weight: bold; font-size: 11px; line-height: 1.4; }
+        .btn-ebitda { background: #2563eb; }
+        .btn-ebitda:hover { background: #1d4ed8; }
+        .btn-debt { background: #dc2626; }
+        .btn-debt:hover { background: #b91c1c; }
+        .btn-pass { background: #4b5563; }
+        .btn-pass:hover { background: #374151; }
+
+        .expl-box { font-size: 12px; color: #cbd5e1; background: #0f172a; padding: 10px 12px; border-radius: 8px; margin-top: 12px; border-left: 3px solid var(--accent); display: none; line-height: 1.6; }
+        .expl-box.wrong { border-left-color: var(--danger); }
+
+        .reset-btn { width: 100%; padding: 10px; background: #334155; border: none; color: white; border-radius: 6px; cursor: pointer; font-size: 13px; flex-shrink: 0; margin-top: 12px; }
+        .reset-btn:hover { background: #475569; }
+
+        hr.divider { border: 0; border-top: 1px solid #334155; margin: 12px 0; flex-shrink: 0; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="formula-card">
+            <div class="formula-title">🧮 估值计算桥梁</div>
+            <div class="formula-line">
+                <span>EBITDA</span>
+                <b id="val-ebitda">1,000</b>
+            </div>
+            <div class="formula-line">
+                <span class="math-symbol">×</span>
+                <span style="color:var(--text-sub); font-size:13px;">Multiple</span>
+                <b>6.0</b>
+            </div>
+            <div style="border-top: 1px solid #334155; margin: 6px 0;"></div>
+            <div class="formula-line" style="color: var(--warn)">
+                <span>= EV</span>
+                <b id="val-ev">6,000</b>
+            </div>
+            <div class="formula-line">
+                <span class="math-symbol">-</span>
+                <span style="color:var(--text-sub); font-size:13px;">Net Debt</span>
+                <b id="val-debt" style="color: var(--danger)">0</b>
+            </div>
+            <div class="formula-line">
+                <span class="math-symbol">+</span>
+                <span style="color:var(--text-sub); font-size:13px;">Cash</span>
+                <b>500</b>
+            </div>
+            <div style="border-top: 2px solid var(--accent); margin: 6px 0;"></div>
+            <div class="formula-line" style="font-size: 16px; color: var(--accent)">
+                <span>= Equity Value</span>
+                <b id="val-equity">6,500</b>
+            </div>
+        </div>
+
+        <hr class="divider">
+
+        <div class="log-section">
+            <div class="log-title">操作日志</div>
+            <div class="log-list" id="log-list">
+                <div style="color: var(--text-sub); font-size: 12px; padding: 6px 0;">完成题目后将在此显示记录</div>
+            </div>
+        </div>
+
+        <button class="reset-btn" onclick="location.reload()">重新开始</button>
+    </div>
+
+    <div class="main-content">
+        <h1 class="main-title">M&A 实战：找出隐藏的真相</h1>
+        <p class="main-sub">作为分析师，请判断以下发现属于哪类调整：</p>
+        <div id="checklist"></div>
+    </div>
+
+<script>
+    let state = { eb: 1000, db: 0, mult: 6, cash: 500 };
+    const resolved = {};
+    const notified = {};
+
+    const tasks = [
+        {
+            id: 't1',
+            title: "【高管开销】社长私人豪车租赁费",
+            doc_jp: "社長の高級車リース代（年300万円）が経費計上されているが、業務には一切使用されていない。",
+            doc_cn: "社长的豪车租赁费（年300万）计入了公司开支，但实际并未用于业务。",
+            correct: "UP", val: 300,
+            explain: "<b>调增 EBITDA（加回）：</b> 这属于非业务开支。买家买下公司后不会再花这笔钱，因此公司的<b>真实赚钱能力</b>其实比报表更高。加回 300 万，估值增加 300×6 = 1,800 万！"
+        },
+        {
+            id: 't2',
+            title: "【历史欠账】未付加班费风险",
+            doc_jp: "過去の労働実態を調査した結果、未払いの残業代が800万円存在することが判明した。",
+            doc_cn: "调查发现公司拖欠员工加班费共计 800 万日元。",
+            correct: "DOWN", val: 800,
+            explain: "<b>调减 Net Debt（类负债）：</b> 这是历史留下的债务'坑'。它不影响公司每天赚多少钱，但买家接手后必须填这个坑，所以要从最终成交价里<b>1:1 扣除</b>。"
+        },
+        {
+            id: 't3',
+            title: "【非经常损失】去年仓库漏水修缮",
+            doc_jp: "昨年、倉庫の漏水修理に200万円かかった。これは一度限りの事故であり、毎年発生するものではない。",
+            doc_cn: "去年仓库漏水花了 200 万修理费。这是偶发事故，今后不会再发生。",
+            correct: "UP", val: 200,
+            explain: "<b>调增 EBITDA（正常化）：</b> 评估时我们要看'常态'。这 200 万是意外损失，不代表业务不行。把它加回来，才能反映<b>正常的持续盈利能力</b>。"
+        },
+        {
+            id: 't4',
+            title: "【坏账风险】无法回收的货款",
+            doc_jp: "取引先1社が倒産しており、売掛金500万円の回収が不可能となっている。",
+            doc_cn: "其中一家客户破产了，500 万日元的货款已经收不回来了。",
+            correct: "DOWN", val: 500,
+            explain: "<b>调减 Net Debt（资产减值）：</b> 账面上写着这 500 万是资产，但实际是空气。这种'虚高'的资产在 M&A 中被视为类负债，需要直接从买价中减去。"
+        }
+    ];
+
+    function notify(action) {
+        window.parent.postMessage({ source: 'ma-valuation', action }, '*');
+    }
+
+    function addLog(t, isCorrect) {
+        const logList = document.getElementById('log-list');
+        // 移除占位文字
+        const placeholder = logList.querySelector('div[style]');
+        if (placeholder) placeholder.remove();
+
+        const entry = document.createElement('div');
+        entry.className = 'log-entry ' + (isCorrect ? 'log-ok' : 'log-fail');
+
+        const shortTitle = t.title.replace(/【.*?】/, '').trim().slice(0, 12);
+        const icon = isCorrect ? '✅' : '❌';
+
+        let detail;
+        if (isCorrect) {
+            if (t.correct === 'UP') detail = `EBITDA +${t.val} 万 → EV +${t.val * state.mult} 万`;
+            else detail = `Net Debt +${t.val} 万 → Equity -${t.val} 万`;
+        } else {
+            const expected = t.correct === 'UP' ? '修正 EBITDA' : '修正 Net Debt';
+            detail = `应选：${expected}`;
+        }
+
+        entry.innerHTML = `<div class="log-label">${icon} ${shortTitle}</div><div class="log-detail">${detail}</div>`;
+        logList.prepend(entry);
+    }
+
+    function render() {
+        const container = document.getElementById('checklist');
+        tasks.forEach(t => {
+            const card = document.createElement('div');
+            card.className = 'dd-card';
+            card.id = t.id;
+            card.innerHTML = `
+                <div style="font-weight:bold; color:var(--accent); margin-bottom:8px;">${t.title}</div>
+                <div style="font-size:13px; margin-bottom:4px;">${t.doc_jp}</div>
+                <div style="font-size:12px; color:var(--text-sub); margin-bottom:12px;">${t.doc_cn}</div>
+                <div class="choice-group">
+                    <button class="choice-btn btn-ebitda" onclick="decide('${t.id}', 'UP')">修正 EBITDA<br><small>影响利润能力</small></button>
+                    <button class="choice-btn btn-debt" onclick="decide('${t.id}', 'DOWN')">修正 Net Debt<br><small>影响负债净额</small></button>
+                    <button class="choice-btn btn-pass" onclick="decide('${t.id}', 'PASS')">无需调整<br><small>正常经营开支</small></button>
+                </div>
+                <div id="expl-${t.id}" class="expl-box"></div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function decide(id, choice) {
+        const t = tasks.find(x => x.id === id);
+        const card = document.getElementById(id);
+        const explBox = document.getElementById('expl-' + id);
+
+        const isCorrect = choice === t.correct;
+
+        explBox.innerHTML = t.explain;
+        explBox.style.display = 'block';
+        if (!isCorrect) explBox.classList.add('wrong');
+        card.classList.add('resolved');
+        resolved[id] = true;
+
+        if (isCorrect) {
+            if (choice === 'UP') state.eb += t.val;
+            if (choice === 'DOWN') state.db += t.val;
+            // 只在首次正确时 notify 对应 term
+            if (choice === 'UP' && !notified.ebitda_adj) {
+                notified.ebitda_adj = true;
+                notify('ebitda_adj');
+            } else if (choice === 'DOWN' && !notified.debt_adj) {
+                notified.debt_adj = true;
+                notify('debt_adj');
+            }
+        } else {
+            notify('wrong_choice');
+        }
+
+        addLog(t, isCorrect);
+        updateUI();
+
+        // 全部完成
+        if (tasks.every(x => resolved[x.id])) {
+            notify('complete');
+        }
+    }
+
+    function updateUI() {
+        const ev = state.eb * state.mult;
+        const equity = ev - state.db + state.cash;
+        document.getElementById('val-ebitda').innerText = state.eb.toLocaleString();
+        document.getElementById('val-ev').innerText = ev.toLocaleString();
+        document.getElementById('val-debt').innerText = state.db.toLocaleString();
+        document.getElementById('val-equity').innerText = equity.toLocaleString();
+    }
+
+    render();
+    notify('start');
+</script>
+</body>
+</html>

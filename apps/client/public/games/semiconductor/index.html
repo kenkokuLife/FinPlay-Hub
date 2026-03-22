@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>半导体 M&A</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; color: #cbd5e1; }
+    body { background: #08090a; overflow-y: auto; }
+
+    .sc-root { padding: 24px; min-height: 100%; }
+    .sc-container { max-width: 80rem; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+
+    /* glass */
+    .sc-glass {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      backdrop-filter: blur(12px);
+    }
+
+    /* top row */
+    .sc-top-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .sc-panel {
+      padding: 20px; border-radius: 16px;
+      display: flex; justify-content: space-between; align-items: flex-end;
+      backdrop-filter: blur(12px);
+    }
+    .sc-panel-player { background: rgba(16,185,129,0.05); border: 1px solid rgba(16,185,129,0.2); }
+    .sc-panel-rival  { background: rgba(244,63,94,0.05); border: 1px solid rgba(244,63,94,0.2); opacity: 0.8; }
+    .sc-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
+    .sc-label-player { color: #10b981; }
+    .sc-label-rival  { color: #f43f5e; }
+    .sc-cash { font-size: 2rem; font-family: ui-monospace, monospace; font-weight: 700; }
+    .sc-cash-rival { color: #64748b; }
+    .sc-sub { font-size: 10px; margin-top: 8px; opacity: 0.5; color: #34d399; }
+    .sc-text-right { text-align: right; }
+    .sc-small-label { font-size: 10px; opacity: 0.5; text-transform: uppercase; }
+    .sc-target  { font-size: 1.5rem; font-family: ui-monospace, monospace; color: #34d399; }
+    .sc-pressure { font-size: 1.5rem; font-family: ui-monospace, monospace; color: #fb7185; }
+
+    /* main grid */
+    .sc-main-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; align-items: stretch; }
+
+    /* market */
+    .sc-market { display: flex; flex-direction: column; gap: 14px; padding: 20px; }
+    .sc-section-title { font-size: 12px; font-weight: 700; color: #64748b; letter-spacing: 0.1em; text-transform: uppercase; }
+    .sc-funding {
+      background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4);
+      padding: 14px; border-radius: 12px; animation: sc-pulse 2s infinite;
+    }
+    @keyframes sc-pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+    .sc-funding-title { font-size: 12px; font-weight: 700; color: #34d399; margin-bottom: 4px; }
+    .sc-funding-desc  { font-size: 10px; opacity: 0.7; color: #fff; margin-bottom: 8px; }
+    .sc-btn-fund {
+      width: 100%; background: #10b981; color: #000;
+      font-size: 10px; font-weight: 700; padding: 6px 0;
+      border-radius: 4px; border: none; cursor: pointer;
+    }
+    .sc-market-item {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      padding: 14px; border-radius: 12px;
+      display: flex; justify-content: space-between; align-items: center;
+      transition: background 0.2s;
+    }
+    .sc-market-item:hover { background: rgba(255,255,255,0.1); }
+    .sc-item-name { font-size: 12px; font-weight: 700; color: #fff; }
+    .sc-item-cost { font-size: 10px; color: #64748b; }
+    .sc-btn-buy { padding: 6px 12px; border-radius: 4px; font-size: 10px; font-weight: 700; border: none; cursor: pointer; }
+    .sc-btn-buy-active   { background: #10b981; color: #000; }
+    .sc-btn-buy-disabled { background: rgba(255,255,255,0.05); color: #475569; cursor: not-allowed; }
+
+    /* center */
+    .sc-center { display: flex; flex-direction: column; gap: 16px; }
+    .sc-center-top { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .sc-card {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      padding: 20px; border-radius: 16px; backdrop-filter: blur(12px);
+    }
+    .sc-card-title { font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 16px; }
+    .sc-card-title-amber { color: #f59e0b; }
+    .sc-card-title-blue  { color: #60a5fa; letter-spacing: 0.1em; }
+    .sc-card-title-slate { color: #94a3b8; }
+
+    /* chart card */
+    .sc-chart-card { min-height: 300px; display: flex; flex-direction: column; align-items: center; }
+    .sc-chart-container { position: relative; width: 180px; height: 180px; }
+
+    /* log card */
+    .sc-log-card { min-height: 300px; display: flex; flex-direction: column; }
+    .sc-log-list {
+      flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+      scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
+    }
+    .sc-log-list::-webkit-scrollbar { width: 4px; }
+    .sc-log-list::-webkit-scrollbar-track { background: transparent; }
+    .sc-log-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+    .sc-log-entry { font-size: 10px; line-height: 1.625; }
+    .sc-log-time  { opacity: 0.4; margin-right: 8px; }
+    .sc-color-buy     { color: #34d399; }
+    .sc-color-strike  { color: #fb7185; }
+    .sc-color-info    { color: #60a5fa; }
+    .sc-color-default { color: #94a3b8; }
+
+    /* portfolio */
+    .sc-portfolio-card { flex: 1; }
+    .sc-portfolio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .sc-portfolio-item {
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(255,255,255,0.04); padding: 8px 12px;
+      border-radius: 6px; border-left: 2px solid;
+    }
+    .sc-portfolio-name { font-size: 10px; }
+    .sc-portfolio-val  { font-size: 10px; font-family: ui-monospace, monospace; }
+
+    @media (max-width: 900px) {
+      .sc-top-row  { grid-template-columns: 1fr; }
+      .sc-main-grid { grid-template-columns: 1fr; }
+      .sc-center-top { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="sc-root">
+  <div class="sc-container">
+
+    <!-- Top panels -->
+    <div class="sc-top-row">
+      <div class="sc-panel sc-panel-player">
+        <div>
+          <p class="sc-label sc-label-player">Player Corp</p>
+          <h1 class="sc-cash" id="cash">¥10,000</h1>
+          <p class="sc-sub" id="equityInfo">股权: 100% | EBITDA: ¥0/s</p>
+        </div>
+        <div class="sc-text-right">
+          <p class="sc-small-label">Target EBITDA</p>
+          <p class="sc-target">¥1,000</p>
+        </div>
+      </div>
+      <div class="sc-panel sc-panel-rival">
+        <div>
+          <p class="sc-label sc-label-rival">Rival Capital</p>
+          <h1 class="sc-cash sc-cash-rival" id="rivalCash">¥10,000</h1>
+        </div>
+        <div class="sc-text-right">
+          <p class="sc-small-label">Pressure</p>
+          <p class="sc-pressure" id="rivalPressure">+¥50/s</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main grid -->
+    <div class="sc-main-grid">
+      <!-- Left: Market -->
+      <div class="sc-market sc-glass" id="market">
+        <h3 class="sc-section-title">M&A Market</h3>
+        <!-- funding + items injected by JS -->
+      </div>
+
+      <!-- Center: Analysis -->
+      <div class="sc-center">
+        <div class="sc-center-top">
+          <div class="sc-card sc-chart-card">
+            <h4 class="sc-card-title sc-card-title-amber">Asset Structure</h4>
+            <div class="sc-chart-container">
+              <canvas id="portfolioChart"></canvas>
+            </div>
+          </div>
+          <div class="sc-card sc-log-card">
+            <h4 class="sc-card-title sc-card-title-blue">Audit Log</h4>
+            <div class="sc-log-list" id="logList"></div>
+          </div>
+        </div>
+        <div class="sc-card sc-portfolio-card">
+          <h4 class="sc-card-title sc-card-title-slate">Portfolio / 持有明细</h4>
+          <div class="sc-portfolio-grid" id="portfolioGrid"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Config ──
+const MARKET = [
+  { id: 'm1', name: '加盟店配方',    type: 'BRAND',  cost: 5000,  income: 100,  life: Infinity, color: '#f59e0b', strike: 0,   msg: '核心配方已入库，品牌价值确立。' },
+  { id: 'p1', name: '全自动封装专利', type: 'PATENT', cost: 15000, income: 450,  life: 100,      color: '#8b5cf6', strike: 150, msg: '专利布局成功！拦截了竞争对手的供应链。' },
+  { id: 'p2', name: '冷链物流专利',  type: 'PATENT', cost: 40000, income: 1100, life: 150,      color: '#a78bfa', strike: 300, msg: '全线冷链封锁，对手利润大幅缩减。' },
+];
+const FUNDING = {
+  threshold: 300, amount: 50000, equityAfter: 0.8,
+  title: '融资机会！', desc: '出让20%股权获取 ¥50,000', btn: '接受注入',
+  log: 'A轮融资完成：现金+50k，股权稀释20%',
+};
+
+// ── State ──
+let state = {
+  cash: 10000, ebitda: 0, rivalCash: 10000, rivalEbitda: 50,
+  portfolio: [], equity: 1, fundingUsed: false, logs: [],
+  amortNotified: false,
+};
+
+// ── Chart ──
+let chart = null;
+function initChart() {
+  const ctx = document.getElementById('portfolioChart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['专利', '品牌'],
+      datasets: [{ data: [0, 0], backgroundColor: ['#8b5cf6', '#f59e0b'], borderWidth: 0 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '70%' }
+  });
+}
+
+function updateChart() {
+  if (!chart) return;
+  const patent = state.portfolio.filter(a => a.type === 'PATENT').reduce((s, a) => s + a.val, 0);
+  const brand  = state.portfolio.filter(a => a.type === 'BRAND').reduce((s, a) => s + a.val, 0);
+  chart.data.datasets[0].data = [patent, brand];
+  chart.update('none');
+}
+
+// ── Helpers ──
+function fmt(n) { return '¥' + Math.floor(n).toLocaleString('zh-CN'); }
+function now()  { return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+function notify(action) {
+  if (window.parent !== window) {
+    window.parent.postMessage({ source: 'semiconductor', action }, '*');
+  }
+}
+
+function addLog(msg, colorClass) {
+  state.logs.unshift({ id: Date.now(), time: now(), msg, colorClass: colorClass || 'sc-color-default' });
+  if (state.logs.length > 10) state.logs.length = 10;
+}
+
+// ── Render ──
+function render() {
+  // Top panels
+  document.getElementById('cash').textContent = fmt(state.cash);
+  document.getElementById('equityInfo').textContent =
+    `股权: ${(state.equity * 100).toFixed(0)}% | EBITDA: ${fmt(state.ebitda * state.equity)}/s`;
+  document.getElementById('rivalCash').textContent = fmt(state.rivalCash);
+  document.getElementById('rivalPressure').textContent = `+${fmt(state.rivalEbitda)}/s`;
+
+  // Market panel
+  renderMarket();
+
+  // Log
+  const logList = document.getElementById('logList');
+  logList.innerHTML = state.logs.map(l =>
+    `<div class="sc-log-entry ${l.colorClass}"><span class="sc-log-time">[${l.time}]</span>${l.msg}</div>`
+  ).join('');
+
+  // Portfolio grid
+  const grid = document.getElementById('portfolioGrid');
+  grid.innerHTML = state.portfolio.map(a =>
+    `<div class="sc-portfolio-item" style="border-color:${a.color}">
+      <span class="sc-portfolio-name">${a.name}</span>
+      <span class="sc-portfolio-val">${fmt(a.val)}</span>
+    </div>`
+  ).join('');
+
+  updateChart();
+}
+
+function renderMarket() {
+  const market = document.getElementById('market');
+  let html = '<h3 class="sc-section-title">M&A Market</h3>';
+
+  // Funding card
+  if (state.ebitda >= FUNDING.threshold && !state.fundingUsed) {
+    html += `<div class="sc-funding">
+      <p class="sc-funding-title">${FUNDING.title}</p>
+      <p class="sc-funding-desc">${FUNDING.desc}</p>
+      <button class="sc-btn-fund" onclick="acceptFunding()">${FUNDING.btn}</button>
+    </div>`;
+  }
+
+  // Market items
+  for (const item of MARKET) {
+    const canBuy = state.cash >= item.cost;
+    html += `<div class="sc-market-item">
+      <div>
+        <p class="sc-item-name">${item.name}</p>
+        <p class="sc-item-cost">¥${item.cost.toLocaleString()} | +${item.income}/s</p>
+      </div>
+      <button
+        class="sc-btn-buy ${canBuy ? 'sc-btn-buy-active' : 'sc-btn-buy-disabled'}"
+        onclick="buy('${item.id}')"
+        ${canBuy ? '' : 'disabled'}
+      >并购</button>
+    </div>`;
+  }
+
+  market.innerHTML = html;
+}
+
+// ── Actions ──
+function buy(id) {
+  const item = MARKET.find(m => m.id === id);
+  if (!item || state.cash < item.cost) return;
+  state.cash -= item.cost;
+  state.portfolio.push({ ...item, val: item.cost, original: item.cost });
+  if (item.strike) state.rivalEbitda = Math.max(10, state.rivalEbitda - item.strike);
+  addLog(item.msg, 'sc-color-buy');
+  if (item.strike) addLog(`专利打击！对手收益降低 ${fmt(item.strike)}`, 'sc-color-strike');
+  notify(item.type === 'BRAND' ? 'buy_brand' : 'buy_patent');
+  render();
+}
+
+function acceptFunding() {
+  state.cash += FUNDING.amount;
+  state.equity = FUNDING.equityAfter;
+  state.fundingUsed = true;
+  addLog(FUNDING.log, 'sc-color-info');
+  notify('funding');
+  render();
+}
+
+// ── Game tick ──
+setInterval(() => {
+  let income = 0;
+  let hasAmort = false;
+
+  state.portfolio = state.portfolio.map(a => {
+    income += a.income;
+    if (a.life !== Infinity) {
+      const step = a.original / a.life;
+      hasAmort = true;
+      return { ...a, val: Math.max(0, a.val - step) };
+    }
+    return a;
+  }).filter(a => a.val > 0);
+
+  state.cash += income * state.equity;
+  state.ebitda = income;
+  state.rivalCash += state.rivalEbitda;
+  state.rivalEbitda += 0.2;
+
+  if (hasAmort && !state.amortNotified) {
+    state.amortNotified = true;
+    notify('amortize');
+  }
+
+  render();
+}, 1000);
+
+// ── Init ──
+initChart();
+notify('start');
+render();
+</script>
+</body>
+</html>
