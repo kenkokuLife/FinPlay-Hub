@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>FinPlay Hub - 金融教学实验舱</title>
+    <style>
+        :root {
+            --bg: #08090a; --panel: #161b22; --border: #30363d;
+            --primary: #3b82f6; --success: #10b981; --danger: #f43f5e; --warning: #f59e0b;
+        }
+        body { background: var(--bg); color: #e2e8f0; font-family: 'JetBrains Mono', system-ui, sans-serif; margin: 0; padding: 20px; }
+        
+        /* 布局与导航 */
+        .container { max-width: 1100px; margin: 0 auto; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .tab-btn { background: none; border: 1px solid var(--border); color: #8b949e; padding: 10px 20px; cursor: pointer; border-radius: 6px; }
+        .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        
+        /* 游戏面板 */
+        .game-panel { display: none; grid-template-columns: 1.5fr 1fr; gap: 20px; animation: fadeIn 0.3s ease; }
+        .game-panel.active { display: grid; }
+        .card { background: var(--panel); border: 1px solid var(--border); padding: 20px; border-radius: 12px; position: relative; }
+        
+        /* 核心提示系统 (Tooltip) */
+        .help-icon {
+            display: inline-block; width: 16px; height: 16px; background: #30363d; 
+            border-radius: 50%; text-align: center; line-height: 16px; font-size: 10px; 
+            cursor: help; color: var(--warning); margin-left: 5px;
+        }
+        .help-icon:hover::after {
+            content: attr(data-tip); position: absolute; left: 20px; top: 30px; 
+            background: #f59e0b; color: #000; padding: 10px; border-radius: 4px; 
+            width: 250px; font-size: 12px; z-index: 100; line-height: 1.4; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        /* 统一组件 */
+        .stat-group { margin-bottom: 15px; }
+        .stat-label { font-size: 12px; color: #8b949e; display: flex; align-items: center; }
+        .stat-value { font-size: 24px; font-weight: bold; margin-top: 5px; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 10px; transition: 0.2s; }
+        .btn-bank { background: var(--success); color: white; }
+        .btn-ins { background: var(--primary); color: white; }
+        .btn-short { background: var(--danger); color: white; }
+        .btn:hover { opacity: 0.8; }
+        
+        input[type=range] { width: 100%; accent-color: var(--primary); margin: 10px 0; }
+        .log { height: 120px; overflow-y: auto; background: #010409; padding: 10px; font-size: 11px; border-radius: 6px; margin-top: 15px; border: 1px solid var(--border); }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>FinPlay Hub <span style="font-size: 14px; font-weight: normal; color: #666;">金融宇宙实验室</span></h1>
+    
+    <div class="tabs">
+        <button class="tab-btn active" onclick="showGame('bank')">🏦 影子银行</button>
+        <button class="tab-btn" onclick="showGame('insurance')">🛡️ 精算保险</button>
+        <button class="tab-btn" onclick="showGame('short')">📉 逼空博弈</button>
+    </div>
+
+    <div id="game-bank" class="game-panel active">
+        <div class="card">
+            <h3>控制中心</h3>
+            <div class="stat-group">
+                <div class="stat-label">存款利率 (%) <span class="help-icon" data-tip="这是你支付给储户的成本。如果利率高于基准(3%)，存款会流入；如果太低，储户会跑路，导致现金枯竭！">?</span></div>
+                <input type="range" id="bank-depo-rate" min="0" max="10" step="0.1" value="2.5">
+                <div id="val-depo" class="stat-value">2.5%</div>
+            </div>
+            <div class="stat-group">
+                <div class="stat-label">贷款利率 (%) <span class="help-icon" data-tip="这是你的收入来源。把钱贷给企业，你每秒收利息。建议保持在存款利率的2倍以上来对冲风险。">?</span></div>
+                <input type="range" id="bank-loan-rate" min="1" max="20" step="0.1" value="6.0">
+                <div id="val-loan" class="stat-value">6.0%</div>
+            </div>
+            <button class="btn btn-bank" onclick="bank_loan()">发放贷款 (消耗 ¥5,000 现金)</button>
+            <div class="log" id="log-bank"></div>
+        </div>
+        <div class="card">
+            <h3>实时资产负债表</h3>
+            <div class="stat-group">
+                <div class="stat-label">现金头寸 <span class="help-icon" data-tip="你手里最实时的钱。必须保持为正数！如果跌破0，说明你没钱给提现的储户了，银行立刻倒闭。">?</span></div>
+                <div class="stat-value" id="bank-cash" style="color:var(--success)">¥10,000</div>
+            </div>
+            <div class="stat-group">
+                <div class="stat-label">净资产 (Equity) <span class="help-icon" data-tip="这就是你赚到的钱。公式：(现金 + 贷款) - 存款。目标是赚够 ¥50,000。">?</span></div>
+                <div class="stat-value" id="bank-equity">¥0</div>
+            </div>
+            <div class="stat-group">
+                <div class="stat-label">储户信心指数 <span class="help-icon" data-tip="如果你的存款利率长期比市场平均水平低，这个数字会掉。低于30%时，储户会冲进大门把钱抢光（挤兑）。">?</span></div>
+                <div class="stat-value" id="bank-conf" style="color:var(--warning)">100%</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-insurance" class="game-panel">
+        <div class="card">
+            <h3>精算操作</h3>
+            <button class="btn btn-ins" onclick="ins_sell()">销售保单 (+¥2,000 浮存金)</button>
+            <div class="stat-label" style="margin-top:10px;">什么是浮存金？ <span class="help-icon" data-tip="保单卖出去后，钱先进你的口袋。在发生理赔前，你可以拿这些钱去理财，产生年化5%的利息。这就是巴菲特赚钱的秘诀。">?</span></div>
+            <hr border="0" style="border-top:1px solid #333; margin:20px 0;">
+            <button class="btn" style="background:#6366f1" onclick="ins_re()">购买再保险 (¥5,000)</button>
+            <div class="stat-label" style="margin-top:10px;">为什么买再保险？ <span class="help-icon" data-tip="花费一笔小钱，换取10秒的无敌状态。期间如果发生赔付，你只需要出20%的钱。适合在保单很多、风险极高时开启。">?</span></div>
+        </div>
+        <div class="card">
+            <h3>资金与风险</h3>
+            <div class="stat-group">
+                <div class="stat-label">当前总资金 <span class="help-icon" data-tip="你手里的所有准备金。如果理赔额超过这个数，你就破产了。">?</span></div>
+                <div class="stat-value" id="ins-float" style="color:var(--primary)">¥50,000</div>
+            </div>
+            <div class="stat-group">
+                <div class="stat-label">实时理赔概率 <span class="help-icon" data-tip="保单卖得越多，理赔概率越高。当这个数字变红时，理赔随时可能发生。">?</span></div>
+                <div class="stat-value" id="ins-risk" style="color:var(--danger)">0.0%</div>
+            </div>
+            <div class="log" id="log-ins"></div>
+        </div>
+    </div>
+
+    <div id="game-short" class="game-panel">
+        <div class="card">
+            <h3>交易终端</h3>
+            <div class="stat-label">当前股价:</div>
+            <div class="price price-up" id="short-price" style="font-size:40px; font-weight:bold;">¥150.00</div>
+            <button class="btn btn-short" onclick="short_sell()">融券卖出 (做空 10 股)</button>
+            <div class="stat-label" style="margin-top:10px;">做空原理 <span class="help-icon" data-tip="先借股票卖掉换成钱，等股价跌了再低价买回来还给人家。股价跌得越惨，你赚得越多。">?</span></div>
+        </div>
+        <div class="card">
+            <h3>风险监控</h3>
+            <div class="stat-group">
+                <div class="stat-label">保证金安全性 <span class="help-icon" data-tip="如果股价上涨，你的未实现亏损会消耗这根进度条。一旦归零，券商会强行把你踢出市场并没收你的钱（爆仓）。">?</span></div>
+                <div style="height:15px; background:#000; border-radius:10px; margin-top:10px; overflow:hidden;">
+                    <div id="short-bar" style="height:100%; width:100%; background:var(--warning); transition: 0.3s;"></div>
+                </div>
+            </div>
+            <div class="stat-group" style="margin-top:20px;">
+                <div class="stat-label">账户权益 (含盈亏) <span class="help-icon" data-tip="你的钱 + (开仓价 - 当前价) * 持仓量。">?</span></div>
+                <div class="stat-value" id="short-bal">¥20,000</div>
+            </div>
+            <div class="log" id="log-short"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 基础系统
+    function showGame(id) {
+        document.querySelectorAll('.game-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('game-' + id).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    // 1. 银行逻辑
+    let b = { cash: 10000, loans: 0, deposits: 10000, conf: 100, br: 3.0 };
+    function bank_loan() {
+        if(b.cash > 6000) { b.cash -= 5000; b.loans += 5000; addLog('bank', '发放贷款 ¥5,000'); }
+        else { addLog('bank', '❌ 现金不足，无法放贷', 'danger'); }
+    }
+    
+    // 2. 保险逻辑
+    let i = { float: 50000, policies: 0, re: false };
+    function ins_sell() { i.float += 2000; i.policies += 5; addLog('ins', '销售保单，获得准备金 ¥2,000'); }
+    function ins_re() { 
+        if(i.float > 5000) { i.float -= 5000; i.re = true; addLog('ins', '🛡️ 再保险生效中 (10s)'); setTimeout(()=>i.re=false, 10000); }
+    }
+
+    // 3. 做空逻辑
+    let s = { p: 150, bal: 20000, qty: 0, entry: 150 };
+    function short_sell() { if(s.bal > s.p*5) { s.qty += 10; s.entry = s.p; addLog('short', '建立空头头寸 10 股'); } }
+
+    function addLog(id, msg, type='') {
+        const el = document.getElementById('log-' + id);
+        el.innerHTML = `<div style="color:${type==='danger'?'#f43f5e':''} font-size:10px;">> ${msg}</div>` + el.innerHTML;
+    }
+
+    // 主循环
+    setInterval(() => {
+        // 银行运行
+        let dr = parseFloat(document.getElementById('bank-depo-rate').value);
+        let lr = parseFloat(document.getElementById('bank-loan-rate').value);
+        document.getElementById('val-depo').innerText = dr.toFixed(1) + "%";
+        document.getElementById('val-loan').innerText = lr.toFixed(1) + "%";
+        b.cash += (b.loans * lr/100 - b.deposits * dr/100)/60;
+        let b_spread = dr - b.br;
+        b.deposits += b.deposits * (b_spread/1000); b.cash += b.deposits * (b_spread/1000);
+        if(b_spread < -1) b.conf -= 1; else b.conf = Math.min(100, b.conf + 0.5);
+        if(b.conf < 30) { b.cash -= b.deposits * 0.05; addLog('bank', '🚨 储户信心崩盘，发生挤兑！', 'danger'); }
+        let b_equity = (b.cash + b.loans) - b.deposits;
+        document.getElementById('bank-cash').innerText = "¥"+Math.floor(b.cash).toLocaleString();
+        document.getElementById('bank-equity').innerText = "¥"+Math.floor(b_equity).toLocaleString();
+        document.getElementById('bank-conf').innerText = Math.floor(b.conf)+"%";
+
+        // 保险运行
+        i.float += i.float * 0.0005; 
+        let riskVal = i.policies * 0.1;
+        document.getElementById('ins-risk').innerText = riskVal.toFixed(1) + "%";
+        document.getElementById('ins-float').innerText = "¥"+Math.floor(i.float).toLocaleString();
+        if(Math.random() < (riskVal/100)) {
+            let loss = 12000 + Math.random() * 20000;
+            if(i.re) loss *= 0.2;
+            i.float -= loss; addLog('ins', `💥 理赔支出: ¥${Math.floor(loss)}`, 'danger');
+        }
+
+        // 做空运行
+        s.p += (Math.random() - 0.48) * 8;
+        let pnl = (s.entry - s.p) * s.qty;
+        let safety = ((s.bal + pnl) / (s.p * s.qty || 1)) * 100;
+        document.getElementById('short-price').innerText = "¥" + s.p.toFixed(2);
+        document.getElementById('short-price').style.color = Math.random()>0.5 ? 'var(--success)' : 'var(--danger)';
+        document.getElementById('short-bal').innerText = "¥" + Math.floor(s.bal + pnl).toLocaleString();
+        document.getElementById('short-bar').style.width = Math.min(100, Math.max(0, safety)) + "%";
+        if(safety < 15 && s.qty > 0) { s.bal += pnl; s.qty = 0; addLog('short', '爆仓！强制平仓。', 'danger'); }
+
+        // 失败检测
+        if(b.cash < 0 || i.float < 0) { alert("破产！请重新开始。"); location.reload(); }
+    }, 1000);
+</script>
+
+</body>
+</html>

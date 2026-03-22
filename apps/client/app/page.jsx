@@ -1,9 +1,22 @@
  "use client";
 
 import { useEffect, useState } from "react";
-import { Coffee, Clock } from "lucide-react";
+import { Coffee, Clock, Cpu } from "lucide-react";
 
 const DIFFICULTY_STARS = { EASY: 1, MEDIUM: 2, HARD: 3, EXPERT: 4 };
+
+const GAME_CARD_META = {
+  "milk-tea-pro": {
+    icon: Coffee,
+    label: "MODULE: OPEX/CAPEX",
+    iconColor: "#60a5fa",
+  },
+  "semiconductor": {
+    icon: Cpu,
+    label: "MODULE: M&A / IP",
+    iconColor: "#a78bfa",
+  },
+};
 const CATEGORY_LABELS = {
   FINANCE: "财务",
   STRATEGY: "策略",
@@ -132,11 +145,13 @@ export default function Home() {
             {games.map((game) => {
               const stars = DIFFICULTY_STARS[game.difficulty] || 2;
               const playTime = formatPlayTime(game.totalPlayTime);
+              const meta = GAME_CARD_META[game.slug] || GAME_CARD_META["milk-tea-pro"];
+              const IconComp = meta.icon;
               return (
                 <div className="game-card" key={game.id}>
                   <div className="game-card-thumb css-thumb">
-                    <Coffee size={56} strokeWidth={1.2} className="css-thumb-icon" />
-                    <span className="css-thumb-label">MODULE: OPEX/CAPEX</span>
+                    <IconComp size={56} strokeWidth={1.2} className="css-thumb-icon" style={{ color: meta.iconColor }} />
+                    <span className="css-thumb-label">{meta.label}</span>
                     {playTime && (
                       <span className="css-thumb-time">
                         <Clock size={12} strokeWidth={2} />

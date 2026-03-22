@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Actuary Pro - Guide Edition</title>
+    <style>
+        body { background: #08090a; color: #e2e8f0; font-family: monospace; padding: 20px; }
+        .card { background: #161b22; border: 1px solid #30363d; padding: 30px; border-radius: 12px; max-width: 600px; margin: auto; }
+        .guide-box { border-left: 3px solid #3b82f6; padding-left: 15px; margin: 15px 0; font-size: 12px; color: #8b949e; }
+        .btn { width: 100%; padding: 12px; background: #3b82f6; color: white; border: none; cursor: pointer; margin-bottom: 8px; font-weight: bold; border-radius: 4px; }
+        .stat-val { font-size: 28px; color: #3b82f6; margin: 10px 0; }
+        .risk-tag { color: #f43f5e; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>🛡️ 精算师：浮存金管理终端</h2>
+        <div class="guide-box">
+            <b>操作指南：</b><br>
+            1. 点击“销售保单”获得 ¥2,000 <b>浮存金</b>。这些钱每秒产生 5% 年化收益。<br>
+            2. <b>风险提示：</b> 保单越多，理赔概率（Risk）越高。随机爆发理赔会扣除大额资金。<br>
+            3. <b>再保险：</b> 预感到要出事？点击再保险，10秒内理赔损失降至 20%。
+        </div>
+        
+        <div class="stat-val" id="float">¥50,000</div>
+        <div style="font-size:13px; margin-bottom:20px;">
+            有效保单: <span id="p-count">0</span> | 
+            实时理赔风险: <span id="risk" class="risk-tag">0.0%</span>
+        </div>
+
+        <button class="btn" onclick="buy(1)">销售新保单 (+¥2,000)</button>
+        <button class="btn" style="background:#6366f1" onclick="buy(2)">购买再保险 (盾牌: 10s)</button>
+        
+        <div id="re-status" style="display:none; color:#10b981; font-size:11px; margin-top:5px;">🛡️ 再保险生效中...</div>
+        <div id="alert" style="display:none; color:#f43f5e; margin-top:10px;">🚨 正在处理赔付请求！</div>
+    </div>
+
+    <script>
+        let float = 50000, policies = 0, reInsurance = false;
+        function buy(t) {
+            if(t===1) { float += 2000; policies += 5; }
+            if(t===2 && float > 5000) { 
+                float -= 5000; reInsurance = true; 
+                document.getElementById('re-status').style.display='block';
+                setTimeout(()=> { reInsurance=false; document.getElementById('re-status').style.display='none'; }, 10000); 
+            }
+        }
+        setInterval(() => {
+            float += float * 0.0005; // 模拟年化投资
+            let riskVal = policies * 0.08;
+            document.getElementById('risk').innerText = riskVal.toFixed(1) + "%";
+            document.getElementById('p-count').innerText = policies;
+            
+            if(Math.random() < (riskVal/100)) {
+                let loss = 10000 + Math.random() * 20000;
+                if(reInsurance) loss *= 0.2;
+                float -= loss;
+                document.getElementById('alert').style.display = 'block';
+                setTimeout(()=> document.getElementById('alert').style.display = 'none', 800);
+            }
+            document.getElementById('float').innerText = "¥" + Math.floor(float).toLocaleString();
+            if(float < 0) { alert("保险公司倒闭！"); location.reload(); }
+            if(float > 200000) { alert("成功：你已掌握精算之魂！"); location.reload(); }
+        }, 1000);
+    </script>
+</body>
+</html>

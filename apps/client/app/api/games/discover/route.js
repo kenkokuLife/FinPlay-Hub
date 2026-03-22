@@ -12,11 +12,14 @@ async function listGameFolders(gamesDir) {
 }
 
 export async function GET() {
-  const gamesDir = path.join(process.cwd(), "public", "games");
+  const publicGamesDir = path.join(process.cwd(), "public", "games");
+  const appGamesDir = path.join(process.cwd(), "app", "games");
 
   let folders = [];
   try {
-    folders = await listGameFolders(gamesDir);
+    const publicFolders = await listGameFolders(publicGamesDir).catch(() => []);
+    const appFolders = await listGameFolders(appGamesDir).catch(() => []);
+    folders = [...new Set([...publicFolders, ...appFolders])];
   } catch (err) {
     if (err?.code !== "ENOENT") {
       return NextResponse.json({ error: "Failed to read games directory" }, { status: 500 });

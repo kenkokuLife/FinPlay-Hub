@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Short Squeeze - Guide Edition</title>
+    <style>
+        body { background: #0d1117; color: #c9d1d9; font-family: monospace; padding: 20px; }
+        .panel { border: 1px solid #30363d; padding: 25px; max-width: 500px; margin: auto; border-radius: 12px; background: #161b22; }
+        .price { font-size: 48px; margin: 15px 0; text-align: center; }
+        .up { color: #39d353; } .down { color: #f85149; }
+        .guide { font-size: 11px; color: #8b949e; background: #0d1117; padding: 10px; border-radius: 4px; margin: 15px 0; }
+        .btn { padding: 15px; width: 100%; background: #f85149; color: white; border: none; font-weight: bold; cursor: pointer; border-radius: 6px; }
+        .safety-bar { height: 10px; background: #30363d; border-radius: 5px; margin-top: 5px; overflow: hidden; }
+        .safety-fill { height: 100%; background: #f1e05a; transition: 0.3s; }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <h3>📉 逼空博弈终端</h3>
+        <div id="price" class="price">¥150.00</div>
+        
+        <div class="guide">
+            <b>操作逻辑：</b><br>
+            1. 点击“融券卖出”：你借入股票并立即按当前价卖出，期待它跌回 ¥20。<br>
+            2. <b>致命风险：</b> 股价上涨会让你产生“未实现亏损”。<br>
+            3. <b>爆仓逻辑：</b> 下方的黄色条代表你的保证金安全度。如果安全性降至 15% 以下，券商会强制把你账号里的钱拿去买股票还给人家，你将血本无归。
+        </div>
+
+        <div style="font-size:12px; margin-bottom:5px;">保证金安全性:</div>
+        <div class="safety-bar"><div id="m-bar" class="safety-fill"></div></div>
+        
+        <div style="display:grid; grid-template-columns: 1fr 1fr; margin-top:20px; font-size:13px;">
+            <div>账户余额: <span id="bal" style="color:#fff">¥20,000</span></div>
+            <div>持有空单: <span id="qty" style="color:#fff">0</span> 股</div>
+        </div>
+        <button class="btn" style="margin-top:20px;" onclick="short()">融券卖出 (做空 10 股)</button>
+    </div>
+
+    <script>
+        let p = 150, bal = 20000, qty = 0, entry = 150;
+        function short() { if(bal > p*5) { qty += 10; entry = p; } }
+        setInterval(() => {
+            let change = (Math.random() - 0.48) * 10; // 模拟波动
+            p += change;
+            let pnl = (entry - p) * qty;
+            let safety = ((bal + pnl) / (p * qty || 1)) * 100;
+            
+            document.getElementById('price').innerText = "¥" + p.toFixed(2);
+            document.getElementById('price').className = "price " + (change > 0 ? "up" : "down");
+            document.getElementById('bal').innerText = "¥" + Math.floor(bal + pnl).toLocaleString();
+            document.getElementById('qty').innerText = qty;
+            document.getElementById('m-bar').style.width = Math.min(100, Math.max(0, safety)) + "%";
+            
+            if(safety < 15 && qty > 0) { 
+                alert("🚨 MARGIN CALL! 账户资金不足以支撑亏损，系统强制平仓。"); 
+                bal += pnl; qty = 0; 
+            }
+            if(p < 20) { alert("胜利！股价崩盘，你大获全胜。"); location.reload(); }
+        }, 800);
+    </script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>M&A Valuation Master - 概念通关版</title>
+    <style>
+        :root { --accent: #10b981; --warn: #f59e0b; --danger: #ef4444; --bg: #020617; --panel: #1e293b; --text-sub: #94a3b8; }
+        body { background: var(--bg); color: #f1f5f9; font-family: 'Segoe UI', 'Meiryo', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* 左侧：公式看板 */
+        .sidebar { width: 500px; background: #0f172a; border-right: 2px solid #334155; display: flex; flex-direction: column; padding: 25px; box-sizing: border-box; }
+        .formula-card { background: #111827; border: 1px solid var(--accent); border-radius: 15px; padding: 20px; margin-bottom: 20px; }
+        .formula-line { display: flex; align-items: center; justify-content: space-between; margin: 10px 0; font-family: 'Courier New', monospace; font-size: 18px; }
+        .math-symbol { color: var(--warn); font-weight: bold; font-size: 24px; }
+        
+        .concept-note { font-size: 12px; color: var(--text-sub); background: #1e293b; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 3px solid var(--warn); }
+        
+        /* 右侧：任务清单 */
+        .main-content { flex: 1; padding: 30px; overflow-y: auto; }
+        .dd-card { background: var(--panel); border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .dd-card.resolved { opacity: 0.4; pointer-events: none; border-color: #000; }
+        
+        .choice-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
+        .choice-btn { padding: 12px; border: none; border-radius: 6px; cursor: pointer; color: white; font-weight: bold; font-size: 12px; }
+        .btn-ebitda { background: #2563eb; } 
+        .btn-debt { background: #dc2626; }
+        .btn-pass { background: #4b5563; }
+
+        .result-msg { font-size: 13px; color: var(--accent); margin-top: 10px; display: none; }
+        .error-msg { color: var(--danger); font-size: 13px; margin-top: 10px; display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2 style="color: var(--accent); margin-top: 0;">🧮 估值计算桥梁</h2>
+        
+        <div class="formula-card">
+            <div class="formula-line">
+                <span>EBITDA <small>(利润能力)</small></span>
+                <b id="val-ebitda">1,000</b>
+            </div>
+            <div class="formula-line">
+                <span class="math-symbol">×</span>
+                <span>Multiple <small>(行业倍数)</small></span>
+                <b>6.0</b>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #334155;">
+            <div class="formula-line" style="color: var(--warn)">
+                <span>= EV <small>(企业整体价值)</small></span>
+                <b id="val-ev">6,000</b>
+            </div>
+            <div class="formula-line">
+                <span class="math-symbol">-</span>
+                <span>Net Debt <small>(净负债/坑)</small></span>
+                <b id="val-debt" style="color: var(--danger)">0</b>
+            </div>
+            <div class="formula-line">
+                <span class="math-symbol">+</span>
+                <span>Cash <small>(账面现金)</small></span>
+                <b>500</b>
+            </div>
+            <hr style="border: 0; border-top: 2px solid var(--accent);">
+            <div class="formula-line" style="font-size: 24px; color: var(--accent)">
+                <span>= Equity Value</span>
+                <b id="val-equity">6,500</b>
+            </div>
+        </div>
+
+        <div id="dynamic-concept" class="concept-note">
+            <b>💡 专家提示：</b><br>
+            点击右侧项目，看看数值是如何通过公式传导的。
+        </div>
+
+        <div style="margin-top: auto;">
+            <button onclick="location.reload()" style="width:100%; padding:12px; background:#334155; border:none; color:white; border-radius:6px; cursor:pointer;">重新开始</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <h1 style="margin:0">M&A 实战：找出隐藏的真相</h1>
+        <p style="color: var(--text-sub)">作为分析师，请判断以下发现属于哪类调整：</p>
+
+        <div id="checklist"></div>
+    </div>
+
+<script>
+    let state = { eb: 1000, db: 0, mult: 6, cash: 500 };
+
+    const tasks = [
+        {
+            id: 't1',
+            title: "【高管开销】社长私人豪车租赁费",
+            doc_jp: "社長の高級車リース代（年300万円）が経費計上されているが、業務には一切使用されていない。",
+            doc_cn: "社长的豪车租赁费（年300万）计入了公司开支，但实际并未用于业务。",
+            correct: "UP", val: 300,
+            explain: "<b>调增 EBITDA (加回)：</b> 这属于非业务开支。买家买下公司后不会再花这笔钱，因此公司的<b>真实赚钱能力</b>其实比报表更高。加回 300 万，估值会增加 300×6 = 1800 万！"
+        },
+        {
+            id: 't2',
+            title: "【历史欠账】未付加班费风险",
+            doc_jp: "過去の労働実態を調査した結果、未払いの残業代が800万円存在することが判明した。",
+            doc_cn: "调查发现公司拖欠员工加班费共计 800 万日元。",
+            correct: "DOWN", val: 800,
+            explain: "<b>调减 Net Debt (类负债)：</b> 这是历史留下的债务‘坑’。它不影响公司每天赚多少钱（不调 EBITDA），但买家接手后必须填这个坑，所以要从最终成交价里<b>1:1 扣除</b>。"
+        },
+        {
+            id: 't3',
+            title: "【非经常损失】去年仓库漏水修缮",
+            doc_jp: "昨年、倉庫の漏水修理に200万円かかった。これは一度限りの事故であり、毎年発生するものではない。",
+            doc_cn: "去年仓库漏水花了 200 万修理费。这是偶发事故，今后不会再发生。",
+            correct: "UP", val: 200,
+            explain: "<b>调增 EBITDA (正常化)：</b> 评估时我们要看‘常态’。这 200 万是意外损失，不代表业务不行。把它加回来，才能反映机器<b>正常的吐金币速度</b>。"
+        },
+        {
+            id: 't4',
+            title: "【坏账风险】无法回收的货款",
+            doc_jp: "取引先1社が倒産しており、売掛金500万円の回収が不可能となっている。",
+            doc_cn: "其中一家客户破产了，500 万日元的货款已经收不回来了。",
+            correct: "DOWN", val: 500,
+            explain: "<b>调减 Net Debt (资产减值)：</b> 账面上写着这 500 万是资产，但实际是空气。这种‘虚高’的资产在 M&A 中被视为类负债，需要直接从买价中减去。"
+        }
+    ];
+
+    function render() {
+        const container = document.getElementById('checklist');
+        tasks.forEach(t => {
+            const card = document.createElement('div');
+            card.className = 'dd-card';
+            card.id = t.id;
+            card.innerHTML = `
+                <div style="font-weight:bold; color:var(--accent); margin-bottom:10px;">${t.title}</div>
+                <div style="font-size:14px; margin-bottom:10px;">${t.doc_jp}<br><span style="color:var(--text-sub); font-size:12px;">${t.doc_cn}</span></div>
+                <div class="choice-group">
+                    <button class="choice-btn btn-ebitda" onclick="decide('${t.id}', 'UP')">修正 EBITDA<br><small>影响利润能力</small></button>
+                    <button class="choice-btn btn-debt" onclick="decide('${t.id}', 'DOWN')">修正 Net Debt<br><small>影响负债净额</small></button>
+                    <button class="choice-btn btn-pass" onclick="decide('${t.id}', 'PASS')">无需调整<br><small>正常经营开支</small></button>
+                </div>
+                <div id="expl-${t.id}" class="concept-note" style="display:none; background:#0f172a; margin-top:15px; border-left-color:var(--accent)"></div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function decide(id, choice) {
+        const t = tasks.find(x => x.id === id);
+        const card = document.getElementById(id);
+        const explBox = document.getElementById('expl-' + id);
+        
+        explBox.innerHTML = t.explain;
+        explBox.style.display = 'block';
+        card.classList.add('resolved');
+
+        if(choice === t.correct) {
+            if(choice === 'UP') state.eb += t.val;
+            if(choice === 'DOWN') state.db += t.val;
+            document.getElementById('dynamic-concept').innerHTML = `<b style="color:var(--accent)">✅ 正确判断！</b><br>${t.explain}`;
+        } else {
+            document.getElementById('dynamic-concept').innerHTML = `<b style="color:var(--danger)">❌ 判断偏差：</b><br>应该选择 ${t.correct === 'UP' ? '修正 EBITDA' : '修正 Net Debt'}。原因见下方解析。`;
+        }
+        
+        updateUI();
+    }
+
+    function updateUI() {
+        const ev = state.eb * state.mult;
+        const equity = ev - state.db + state.cash;
+        
+        document.getElementById('val-ebitda').innerText = state.eb.toLocaleString();
+        document.getElementById('val-ev').innerText = ev.toLocaleString();
+        document.getElementById('val-debt').innerText = state.db.toLocaleString();
+        document.getElementById('val-equity').innerText = equity.toLocaleString();
+        document.getElementById('stats').innerText = `EBITDA: ${state.eb} | 净负债: ${state.cash - state.db}`;
+    }
+
+    render();
+</script>
+</body>
+</html>
